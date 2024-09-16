@@ -3,8 +3,14 @@
       {
           triggerBy: "tag",
           trigger: "iconic-swiper",
-          scriptUrl: "https://unpkg.com/swiper@11.1.12/swiper-bundle.min.js",
+          scriptUrl: "https://shop.arhamwebworks.com/cdn/shop/t/26/assets/component-iconic-swiper.js?v=119886094981147645441726479285",
           styleUrl: "https://unpkg.com/swiper@11.1.12/swiper-bundle.min.css",
+      },
+      {
+        triggerBy: "tag",
+        trigger: "iconic-rotating-bar",
+        scriptUrl: "https://shop.arhamwebworks.com/cdn/shop/t/26/assets/component-iconic-rotatingbar.js?v=156775939512823132231726481902",
+        styleUrl: "",
       },
       // Add more components here if needed
   ];
@@ -36,16 +42,6 @@
 
                   head.appendChild(script);
 
-                  // When the script loads, initialize Swiper if available
-                  script.onload = function () {
-                      if (window.Swiper) {
-                          initializeSwipers(); // Call your Swiper initialization function
-                      }
-                  };
-
-                  script.onerror = function () {
-                      console.error(`Failed to load script: ${component.scriptUrl}`);
-                  };
               }
 
               // Dynamically load the stylesheet if provided
@@ -65,24 +61,12 @@
       });
   }
 
-  function initializeSwipers() {
-      const swiperContainers = document.querySelectorAll(".swiper-container");
-      swiperContainers.forEach(container => {
-          const config = JSON.parse(container.closest('iconic-swiper').getAttribute("data-config"));
-          new Swiper(container, config);
-      });
-  }
-
   function initializeComponents() {
     components.forEach(loadComponent);
   }
 
-  // Shopify section and block events for dynamic reload
+  // // Shopify section and block events for dynamic reload
   document.addEventListener("shopify:section:load", initializeComponents);
-  // document.addEventListener("shopify:section:select", initializeComponents);
-  // document.addEventListener("shopify:section:deselect", initializeComponents);
-  // document.addEventListener("shopify:block:select", initializeComponents);
-  // document.addEventListener("shopify:block:deselect", initializeComponents);
 
   initializeComponents();  // Initialize on page load
 })();
