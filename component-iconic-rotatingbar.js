@@ -1,8 +1,7 @@
-/**
- * Minified by jsDelivr using Terser v5.19.2.
- * Original file: /gh/ArhamWebWorks/iconic-cdn@ca780edecc65ef8932b449144558ddc5be33d492/component-iconic-rotatingbar.js
- *
- * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
- */
+// {
+//   "name": "iconic-rotating-bar.js",
+//   "author": "Arham Web Works"
+//   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
+// }
 (()=>{if(!customElements.get("iconic-rotating-bar")){class t extends HTMLElement{constructor(){super(),this.scrollTopClass="scroll-top",this.scrollDownClass="scroll-down",this.lastScrollPosition=window.scrollY,this.currentScrollPosition=window.scrollY,window.addEventListener("scroll",this.handleScroll.bind(this)),window.addEventListener("resize",this.verticalRotatingBar.bind(this))}connectedCallback(){this.content=document.getElementById("marqueeContent"),this.content&&this.handleScroll(),document.querySelector(".rotating-bar-vertical")&&this.verticalRotatingBar()}handleScroll(){if(this.content){var t=window.scrollY;t>this.lastScrollPosition?(this.content.classList.remove(this.scrollTopClass),this.content.classList.add(this.scrollDownClass)):(this.content.classList.add(this.scrollTopClass),this.content.classList.remove(this.scrollDownClass)),this.lastScrollPosition=t}}verticalRotatingBar(){var t=document.querySelector(".rotating-bar-vertical.rotatebar-side-left");if(t){var o=window.getComputedStyle(t);document.body.style.paddingLeft=parseFloat(o.width)+"px"}var s=document.querySelector(".rotating-bar-vertical.rotatebar-side-right");if(s){o=window.getComputedStyle(s);document.body.style.paddingRight=parseFloat(o.width)+"px"}}}customElements.define("iconic-rotating-bar",t)}})();
 //# sourceMappingURL=/sm/107e9cb311ff5fb3260b5b63062822bfefb6e0c97f0b267ab9ecbbe0a0abd628.map
