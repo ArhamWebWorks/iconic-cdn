@@ -8,7 +8,7 @@
       {
           triggerBy: "tag",
           trigger: "iconic-swiper",
-          scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@d48c05bdea226e37e3bea3deb00ea3f500b03aad/component-iconic-swiper.min.js",
+          scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@master/component-iconic-swiper.js",
           styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@master/component-iconic-swiper.css",
       },
       {
