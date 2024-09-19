@@ -21,19 +21,15 @@
   ];
 
   function loadComponent(component) {
-      // Find all instances of the element based on the trigger type (tag or class)
       let elements = component.triggerBy === "tag"
           ? document.querySelectorAll(component.trigger)
           : document.querySelectorAll(`[class*=${component.trigger}]`);
 
-      // Loop through each instance of the element
       elements.forEach((element, index) => {
-          // Create a unique ID for each instance of the script and style
           const uniqueId = `${component.trigger}-unique-id-${index}`;
           const scriptAlreadyLoaded = document.getElementById(`${uniqueId}-script`);
           const styleAlreadyLoaded = document.getElementById(`${uniqueId}-style`);
 
-          // If the element exists and the script or style hasn't been loaded yet
           if (!scriptAlreadyLoaded || !styleAlreadyLoaded) {
               const head = document.getElementsByTagName("head")[0];
 
@@ -41,7 +37,7 @@
               if (!scriptAlreadyLoaded && component.scriptUrl) {
                   const script = document.createElement("script");
                   script.type = "text/javascript";
-                  script.id = `${uniqueId}-script`; // Unique script ID for each instance
+                  script.id = `${uniqueId}-script`;
                   script.defer = true;
                   script.src = component.scriptUrl;
 
@@ -52,7 +48,7 @@
               // Dynamically load the stylesheet if provided
               if (!styleAlreadyLoaded && component.styleUrl) {
                   const link = document.createElement("link");
-                  link.id = `${uniqueId}-style`; // Unique style ID for each instance
+                  link.id = `${uniqueId}-style`;
                   link.rel = "stylesheet";
                   link.type = "text/css";
                   link.href = component.styleUrl;
@@ -70,14 +66,12 @@
     components.forEach(loadComponent);
   }
 
-  // // Shopify section and block events for dynamic reload
   document.addEventListener("shopify:section:load", initializeComponents);
 
-  initializeComponents();  // Initialize on page load
+  initializeComponents();
 })();
 
 // Element animation
-// Function to initialize and observe DOM changes
 function initializeObserver() {
   // Check if an observer is already defined to avoid redeclaration
   if (typeof window.domObserver === 'undefined') {
