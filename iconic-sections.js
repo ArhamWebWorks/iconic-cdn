@@ -8,13 +8,13 @@
       {
           triggerBy: "tag",
           trigger: "iconic-swiper",
-          scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@master/component-iconic-swiper.js",
-          styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@master/component-iconic-swiper.css",
+          scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.js",
+          styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.css",
       },
       {
         triggerBy: "tag",
         trigger: "iconic-rotating-bar",
-        scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn@master/component-iconic-rotatingbar.js",
+        scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-rotatingbar.js",
         styleUrl: "",
       },
       // Add more components here if needed
