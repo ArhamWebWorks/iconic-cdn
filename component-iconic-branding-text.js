@@ -39,6 +39,7 @@ function applyFontAdjustments() {
     const sectionId = section.getAttribute('data-section-id');
     const containerId = `brandingWrapper-${sectionId}`;
     const textId = `brandingText-${sectionId}`;
+    console.log('test area',sectionId,containerId,textId);
     adjustFontSizeToFill(containerId, textId);
   });
 }
