@@ -1,3 +1,9 @@
+// {
+//   "name": "component-iconic-branding-text.js",
+//   "author": "Arham Web Works"
+//   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
+// }
+
 function adjustFontSizeToFill(containerId, textId) {
   const container = document.getElementById(containerId);
   const text = document.getElementById(textId);
