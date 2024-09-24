@@ -17,6 +17,12 @@
         scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-rotatingbar.js",
         styleUrl: "",
       },
+      {
+        triggerBy: "tag",
+        trigger: "branding-text",
+        scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-branding-text.js",
+        styleUrl: "",
+      },
       // Add more components here if needed
   ];
 
