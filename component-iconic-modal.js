@@ -7,38 +7,42 @@
 (() => {
   if (customElements.get('iconic-modal')) return;
 
+  // Define simple functions globally or within this IIFE
+  function showModal(modal) {
+    modal.classList.add("show-modal");
+    document.body.classList.add("iconic-overflow-hidden");
+    modal.dispatchEvent(new Event("shown.custom.modal"));
+  }
+
+  function hideModal(modal) {
+    modal.classList.remove("show-modal");
+    document.body.classList.remove("iconic-overflow-hidden");
+    modal.dispatchEvent(new Event("hidden.custom.modal"));
+  }
+
+  function closeModalOnClickOutside(modal) {
+    modal.addEventListener("click", function(event) {
+      if (event.target === modal) {
+        hideModal(modal);
+      }
+    });
+  }
+
+  // Define the custom element
   class IconicModal extends HTMLElement {
     constructor() {
       super();
       this.modal = this;
     }
 
-    show() {
-      this.modal.classList.add("show-modal");
-      document.body.classList.add("iconic-overflow-hidden");
-      this.dispatchEvent(new Event("shown.custom.modal"));
-    }
-
-    hide() {
-      this.modal.classList.remove("show-modal");
-      document.body.classList.remove("iconic-overflow-hidden");
-      this.dispatchEvent(new Event("hidden.custom.modal"));
-    }
-
-    closeOnOutsideClick() {
-      this.addEventListener("click", (e) => {
-        if (e.target === this.modal) this.hide();
-      });
+    connectedCallback() {
+      // Example usage of the functions inside the custom element
+      showModal(this.modal);              // Show modal when connected
+      hideModal(this.modal);              // hide modal when connected
+      closeModalOnClickOutside(this.modal); // Close modal on outside click
     }
   }
 
+  // Register the custom element
   customElements.define('iconic-modal', IconicModal);
-
-  // Simplified global functions
-  const addClass = (modal, cls) => modal.classList.add(cls);
-  const removeClass = (modal, cls) => modal.classList.remove(cls);
-
-  window.showModal = (modal) => modal instanceof IconicModal ? modal.show() : addClass(modal, "show-modal");
-  window.hideModal = (modal) => modal instanceof IconicModal ? modal.hide() : removeClass(modal, "show-modal");
-  window.closeModalOnClickOutside = (modal) => modal instanceof IconicModal ? modal.closeOnOutsideClick() : modal.addEventListener("click", (e) => { if (e.target === modal) window.hideModal(modal); });
 })();
