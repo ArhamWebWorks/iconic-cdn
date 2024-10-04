@@ -47,9 +47,13 @@
       const accordionContent = accordionQuestion.closest(".iconic-accordion-main");
       
       if (this.hasAttribute("data-close-other")) {
-        document.querySelectorAll(".iconic-accordion-main.open").forEach((openAccordion) => {
+        console.log('yes----');
+        this.querySelectorAll(".iconic-accordion-main.open").forEach((openAccordion) => {
+          console.log('openAccordion',openAccordion);
+          console.log('accordionContent',accordionContent);
           if (openAccordion !== accordionContent) {
             openAccordion.classList.remove("open");
+            console.log('yes----remove from others');
           }
         });
       }
