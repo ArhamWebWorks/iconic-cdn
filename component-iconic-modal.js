@@ -19,7 +19,6 @@
       });
     }
     show() {
-      console.log("this.modal", this.modal);
       this.modal.classList.add("show-modal");
       document.body.classList.add("iconic-overflow-hidden");
       this.dispatchEvent(new Event("shown.custom.modal"));

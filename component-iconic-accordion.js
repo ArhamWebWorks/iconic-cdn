@@ -4,11 +4,6 @@
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
 
-// {
-//   "name": "iconic-advance-faq-second.js",
-//   "author": "Arham Web Works"
-//   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
-// }
 
 (() => {
   if (customElements.get("iconic-accordion")) {
@@ -47,13 +42,9 @@
       const accordionContent = accordionQuestion.closest(".iconic-accordion-main");
       
       if (this.hasAttribute("data-close-other")) {
-        console.log('yes----');
         this.querySelectorAll(".iconic-accordion-main.open").forEach((openAccordion) => {
-          console.log('openAccordion',openAccordion);
-          console.log('accordionContent',accordionContent);
           if (openAccordion !== accordionContent) {
             openAccordion.classList.remove("open");
-            console.log('yes----remove from others');
           }
         });
       }

@@ -1,6 +1,6 @@
 /* 
   {
-    "name": "component-iconic-accordion.css",
+    "name": "iconic-accordion.css",
     "author": "Arham Web Works"
     "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
   }
@@ -12,8 +12,7 @@
   opacity: 0;
   visibility: hidden;
   height: 0;
-  transform: translateY(0);
-  transition: all 0.2s ease;
+  transition: all 600ms ease;
 }
 .iconic-icon-minus {
   display: none;
@@ -26,8 +25,6 @@
   opacity: 1;
   visibility: visible;
   height: auto;
-  transform: translateY(0%);
-  transition: all 0.3s ease, opacity 1s ease, height 0.3s ease;
 }
 .iconic-accordion-main.open .iconic-icon-minus {
   display: block;
