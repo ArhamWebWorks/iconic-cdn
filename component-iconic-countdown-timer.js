@@ -48,7 +48,7 @@
           }
           else {
             // Time calculations for days, hours, minutes and seconds
-            var days = Math.floor(distance / (1000  60  60 * 24));
+            var days = Math.floor(distance / (1000 * 60 * 60 * 24));
             if(days < 10 ) {
               days = '0' + days;
             }
@@ -56,7 +56,7 @@
               days = days;
             }
 
-            var hours = Math.floor((distance % (1000  60  60  24)) / (1000  60 * 60));
+            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             if(hours  < 10 ) {
               var hours = '0' + hours;
             }
@@ -64,7 +64,7 @@
               hours = hours;
             }
 
-            var minutes = Math.floor((distance % (1000  60  60)) / (1000 * 60));
+            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             if(minutes  < 10 ) {
               var minutes = '0' + minutes;
             }
