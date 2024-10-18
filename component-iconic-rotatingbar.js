@@ -1,7 +1,70 @@
 // {
-//   "name": "iconic-rotating-bar.js",
+//   "name": "component-iconic-rotating-bar.js",
 //   "author": "Arham Web Works"
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
-(()=>{if(!customElements.get("iconic-rotating-bar")){class t extends HTMLElement{constructor(){super(),this.scrollTopClass="scroll-top",this.scrollDownClass="scroll-down",this.lastScrollPosition=window.scrollY,this.currentScrollPosition=window.scrollY,window.addEventListener("scroll",this.handleScroll.bind(this)),window.addEventListener("resize",this.verticalRotatingBar.bind(this))}connectedCallback(){this.content=document.getElementById("marqueeContent"),this.content&&this.handleScroll(),document.querySelector(".rotating-bar-vertical")&&this.verticalRotatingBar()}handleScroll(){if(this.content){var t=window.scrollY;t>this.lastScrollPosition?(this.content.classList.remove(this.scrollTopClass),this.content.classList.add(this.scrollDownClass)):(this.content.classList.add(this.scrollTopClass),this.content.classList.remove(this.scrollDownClass)),this.lastScrollPosition=t}}verticalRotatingBar(){var t=document.querySelector(".rotating-bar-vertical.rotatebar-side-left");if(t){var o=window.getComputedStyle(t);document.body.style.paddingLeft=parseFloat(o.width)+"px"}var s=document.querySelector(".rotating-bar-vertical.rotatebar-side-right");if(s){o=window.getComputedStyle(s);document.body.style.paddingRight=parseFloat(o.width)+"px"}}}customElements.define("iconic-rotating-bar",t)}})();
-//# //# sourceMappingURL=component-iconic-rotatingbar.min.js.map
+(() => {
+  if (customElements.get('iconic-rotating-bar')) {
+    return;
+  }
+
+  class IconicRotatingBar extends HTMLElement {
+    constructor() {
+      super();
+      this.scrollTopClass = 'scroll-top';
+      this.scrollDownClass = 'scroll-down';
+      this.lastScrollPosition = 0;
+      this.content = null;
+    }
+      
+    connectedCallback() {
+      this.content = this.querySelector('#marqueeContent'); // Adjust to select the content correctly
+      this.lastScrollPosition = window.scrollY;
+
+      if (this.content) {
+        this.handleScroll(); 
+        window.addEventListener('scroll', this.handleScroll.bind(this));
+      }
+
+      window.addEventListener('resize', this.verticalRotatingBar.bind(this));
+      this.verticalRotatingBar();
+    }
+
+    disconnectedCallback() {
+      window.removeEventListener('scroll', this.handleScroll.bind(this));
+      window.removeEventListener('resize', this.verticalRotatingBar.bind(this));
+    }
+  
+    handleScroll() {
+      if (!this.content) {
+        return;
+      }
+
+      const currentScrollPosition = window.scrollY;
+      if (currentScrollPosition > this.lastScrollPosition) {
+        this.content.classList.remove(this.scrollTopClass);
+        this.content.classList.add(this.scrollDownClass);
+      } else {
+        this.content.classList.add(this.scrollTopClass);
+        this.content.classList.remove(this.scrollDownClass);
+      }
+      this.lastScrollPosition = currentScrollPosition;
+    }
+
+    verticalRotatingBar() {
+      const leftVerticalBar = this.querySelector('.rotating-bar-vertical.rotatebar-side-left');
+      if (leftVerticalBar) {
+        const rotatebarHeight = window.getComputedStyle(leftVerticalBar);
+        document.body.style.paddingLeft = parseFloat(rotatebarHeight.width) + 'px';
+      }
+      
+      const rightVerticalBar = this.querySelector('.rotating-bar-vertical.rotatebar-side-right');
+      if (rightVerticalBar) {
+        const rotatebarHeight = window.getComputedStyle(rightVerticalBar);
+        document.body.style.paddingRight = parseFloat(rotatebarHeight.width) + 'px';
+      }
+    }
+  }
+  
+  customElements.define('iconic-rotating-bar', IconicRotatingBar);
+})();
