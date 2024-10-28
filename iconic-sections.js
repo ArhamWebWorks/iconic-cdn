@@ -3,73 +3,117 @@
 //   "author": "Arham Web Works"
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
+
 !(function () {
   const components = [
-      {
-          triggerBy: "tag",
-          trigger: "iconic-swiper",
-          scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.js",
-          styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.css",
-      },
-      {
-        triggerBy: "tag",
-        trigger: "iconic-rotating-bar",
-        scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-rotatingbar.js",
-        styleUrl: "",
-      },
-      // Add more components here if needed
+    {
+      triggerBy: "tag",
+      trigger: "iconic-swiper",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-swiper.css",
+    },
+    {
+      triggerBy: "tag",
+      trigger: "iconic-rotating-bar",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-rotatingbar.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-rotatingbar.css",
+    },
+    {
+      triggerBy: "tag",
+      trigger: "iconic-accordion",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-accordion.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-accordion.css",
+    },
+    {
+      triggerBy: "tag",
+      trigger: "iconic-modal",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-modal.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-modal.css",
+    },
+    {
+      triggerBy: "tag",
+      trigger: "iconic-countdown-timer",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-countdown-timer.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-countdown-timer.css",
+    },
+    {
+      triggerBy: "tag",
+      trigger: "iconic-hotspots",
+      scriptUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-hotspots.js",
+      styleUrl: "https://cdn.jsdelivr.net/gh/ArhamWebWorks/iconic-cdn/component-iconic-hotspots.css",
+    },
+    // Add more components here if needed
   ];
 
+  function isFileAlreadyLoaded(fileUrl) {
+    const existingScripts = document.querySelectorAll("script[src]");
+    const existingStyles = document.querySelectorAll("link[href]");
+
+    // Check if the script is already added
+    for (const script of existingScripts) {
+      if (script.src === fileUrl) {
+        return true;
+      }
+    }
+
+    // Check if the style is already added
+    for (const style of existingStyles) {
+      if (style.href === fileUrl) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   function loadComponent(component) {
-      let elements = component.triggerBy === "tag"
-          ? document.querySelectorAll(component.trigger)
-          : document.querySelectorAll(`[class*=${component.trigger}]`);
+    // Find all instances of the element based on the trigger type (tag or class)
+    const elements = component.triggerBy === "tag"
+      ? document.querySelectorAll(component.trigger)
+      : document.querySelectorAll(`[class*=${component.trigger}]`);
 
-      elements.forEach((element, index) => {
-          const uniqueId = `${component.trigger}-unique-id-${index}`;
-          const scriptAlreadyLoaded = document.getElementById(`${uniqueId}-script`);
-          const styleAlreadyLoaded = document.getElementById(`${uniqueId}-style`);
+    // Loop through each instance of the element
+    elements.forEach((element, index) => {
+      const uniqueId = `${component.trigger}-unique-id-${index}`;
 
-          if (!scriptAlreadyLoaded || !styleAlreadyLoaded) {
-              const head = document.getElementsByTagName("head")[0];
+      // Only add the script if it's not already loaded
+      if (component.scriptUrl && !isFileAlreadyLoaded(component.scriptUrl)) {
+        const script = document.createElement("script");
+        script.type = "text/javascript";
+        script.defer = true;
+        script.src = component.scriptUrl;
 
-              // Dynamically load the script if it hasn't been loaded
-              if (!scriptAlreadyLoaded && component.scriptUrl) {
-                  const script = document.createElement("script");
-                  script.type = "text/javascript";
-                  script.id = `${uniqueId}-script`;
-                  script.defer = true;
-                  script.src = component.scriptUrl;
+        document.head.appendChild(script);
+      } else {
+        // console.log(`Component js resources already loaded for instance ${index}.`);
+      }
 
-                  head.appendChild(script);
+      // Only add the style if it's not already loaded
+      if (component.styleUrl && !isFileAlreadyLoaded(component.styleUrl)) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.type = "text/css";
+        link.href = component.styleUrl;
+        link.media = "all";
 
-              }
-
-              // Dynamically load the stylesheet if provided
-              if (!styleAlreadyLoaded && component.styleUrl) {
-                  const link = document.createElement("link");
-                  link.id = `${uniqueId}-style`;
-                  link.rel = "stylesheet";
-                  link.type = "text/css";
-                  link.href = component.styleUrl;
-                  link.media = "all";
-
-                  head.appendChild(link);
-              }
-          } else {
-              console.log(`Component resources already loaded for instance ${index}.`);
-          }
-      });
+        document.head.appendChild(link);
+      } else {
+        // console.log(`Component csss resources already loaded for instance ${index}.`);
+      }
+    });
   }
 
   function initializeComponents() {
     components.forEach(loadComponent);
   }
 
+  // Shopify section and block events for dynamic reload
   document.addEventListener("shopify:section:load", initializeComponents);
 
+  // Initialize on page load
   initializeComponents();
 })();
+
 
 // Element animation
 function initializeObserver() {
@@ -79,7 +123,7 @@ function initializeObserver() {
     function fadeInElements() {
       document.querySelectorAll('[data-fade-in]').forEach((element) => {
         if (isInViewport(element) && !element.classList.contains('fade-in')) {
-          console.log('in2');
+          // console.log('in2');
           element.classList.add('fade-in');
         }
       });
@@ -123,6 +167,68 @@ function initializeObserver() {
 // Initialize the observer once on script load
 initializeObserver();
 
+// Initialize the animate zoom in
+var zoomInClass = 'animate--zoom-in';
+
+function initializeScrollZoomAnimationTrigger() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var animationTriggerElements = Array.from(document.getElementsByClassName(zoomInClass));
+
+  if (animationTriggerElements.length === 0) return;
+
+  var scaleAmount = 0.2 / 100;
+
+  animationTriggerElements.forEach((element) => {
+    let elementIsVisible = false;
+    var observer = new IntersectionObserver((elements) => {
+      elements.forEach((entry) => {
+        elementIsVisible = entry.isIntersecting;
+      });
+    });
+
+    observer.observe(element);
+
+    element.style.setProperty('--zoom-in-ratio', 1 + scaleAmount * percentageSeen(element));
+
+    window.addEventListener('scroll', function () {
+      if (!elementIsVisible) return;
+
+      element.style.setProperty('--zoom-in-ratio', 1 + scaleAmount * percentageSeen(element));
+    }),
+      { passive: true }
+  });
+}
+
+function percentageSeen(element) {
+  var viewportHeight = window.innerHeight;
+  var scrollY = window.scrollY;
+  var elementPositionY = element.getBoundingClientRect().top + scrollY;
+  var elementHeight = element.offsetHeight;
+
+  if (elementPositionY > scrollY + viewportHeight) {
+    // If we haven't reached the image yet
+    return 0;
+  } else if (elementPositionY + elementHeight < scrollY) {
+    // If we've completely scrolled past the image
+    return 100;
+  }
+
+  // When the image is in the viewport
+  var distance = scrollY + viewportHeight - elementPositionY;
+  let percentage = distance / ((viewportHeight + elementHeight) / 100);
+  return Math.round(percentage);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initializeScrollZoomAnimationTrigger();
+});
+
+if (Shopify.designMode) {
+  document.addEventListener('shopify:section:reorder', () => initializeScrollAnimationTrigger(document, true));
+}
+
+// cookie functions
 function setCookie(cname, cvalue, exdays) {
   const d = new Date();
   d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
@@ -130,6 +236,7 @@ function setCookie(cname, cvalue, exdays) {
   document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }
 
+// cookie functions
 function getCookie(cname) {
   let name = cname + "=";
   let ca = document.cookie.split(";");
@@ -145,4 +252,7 @@ function getCookie(cname) {
   return "";
 }
 
-//# sourceMappingURL=iconic-sections.min.js.map
+var showSection = document.querySelectorAll('iconic-show-section');
+showSection.forEach(function(menu) {
+	menu.style.display = 'block';
+});
