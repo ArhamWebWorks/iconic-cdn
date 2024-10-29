@@ -4,4 +4,86 @@
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
 
-function _0x5be9(_0xce40b1,_0x4dca05){var _0x584ea7=_0x584e();return _0x5be9=function(_0x5be9ec,_0x9beacb){_0x5be9ec=_0x5be9ec-0x189;var _0x1b3340=_0x584ea7[_0x5be9ec];return _0x1b3340;},_0x5be9(_0xce40b1,_0x4dca05);}function _0x584e(){var _0x48891a=['define','1010mHIcrZ','1202810czTPYo','dataset','12iTFyBO','remove','42WcPqLl','innerText','iconic-d-none','hideCounterOnComplete','.js-hours','.iconic-countdown-message','get','connectedCallback','querySelector','258092HSUXFr','initCountdown','31329hgnalJ','149828cDvBlT','floor','datetime','136209kUQzda','512104JIthgX','iconic-countdown-timer','.js-minutes','getTime','length','add','classList','92090zPztyx'];_0x584e=function(){return _0x48891a;};return _0x584e();}(function(_0x133b64,_0x1d718d){var _0x2dc79d=_0x5be9,_0x1ce9eb=_0x133b64();while(!![]){try{var _0x398384=-parseInt(_0x2dc79d(0x189))/0x1+parseInt(_0x2dc79d(0x1a1))/0x2+parseInt(_0x2dc79d(0x196))/0x3*(parseInt(_0x2dc79d(0x1a4))/0x4)+parseInt(_0x2dc79d(0x191))/0x5*(-parseInt(_0x2dc79d(0x198))/0x6)+-parseInt(_0x2dc79d(0x194))/0x7+-parseInt(_0x2dc79d(0x18a))/0x8+parseInt(_0x2dc79d(0x1a3))/0x9*(parseInt(_0x2dc79d(0x193))/0xa);if(_0x398384===_0x1d718d)break;else _0x1ce9eb['push'](_0x1ce9eb['shift']());}catch(_0x53e9cf){_0x1ce9eb['push'](_0x1ce9eb['shift']());}}}(_0x584e,0x1f9c5),((()=>{var _0x3f1695=_0x5be9;if(customElements[_0x3f1695(0x19e)](_0x3f1695(0x18b)))return;class _0xebd295 extends HTMLElement{constructor(){var _0x98034c=_0x3f1695;super(),this[_0x98034c(0x1a6)]=this[_0x98034c(0x195)][_0x98034c(0x1a6)],this[_0x98034c(0x19b)]=this[_0x98034c(0x195)]['hideCounterOnComplete'];}[_0x3f1695(0x19f)](){var _0x459123=_0x3f1695;this[_0x459123(0x1a2)]();}['initCountdown'](){var _0x3d8110=_0x3f1695;if(this[_0x3d8110(0x1a6)][_0x3d8110(0x18e)]>0x0)var _0x535110=new Date(this[_0x3d8110(0x1a6)])[_0x3d8110(0x18d)](),_0x2b9061=this[_0x3d8110(0x1a0)]('.js-days'),_0x17eada=this['querySelector'](_0x3d8110(0x19c)),_0x1f19a0=this[_0x3d8110(0x1a0)](_0x3d8110(0x18c)),_0x55cad2=this[_0x3d8110(0x1a0)]('.js-seconds'),_0x310e40=this[_0x3d8110(0x1a0)]('.iconic-countdown-time'),_0x56e061=this[_0x3d8110(0x1a0)](_0x3d8110(0x19d)),_0x489cef=this[_0x3d8110(0x19b)],_0x41bc1c=setInterval(function(){var _0x2bdf12=_0x3d8110,_0x532c85=new Date()['getTime'](),_0x2bdeb4=_0x535110-_0x532c85;if(_0x2bdeb4<0x0)clearInterval(_0x41bc1c),_0x489cef=='yes'?_0x310e40[_0x2bdf12(0x190)][_0x2bdf12(0x18f)]('iconic-d-none'):(_0x310e40[_0x2bdf12(0x190)][_0x2bdf12(0x18f)](_0x2bdf12(0x19a)),_0x56e061[_0x2bdf12(0x190)][_0x2bdf12(0x197)](_0x2bdf12(0x19a)));else{var _0xd9f0eb=Math[_0x2bdf12(0x1a5)](_0x2bdeb4/(0x3e8*0x3c*0x3c*0x18));_0xd9f0eb<0xa?_0xd9f0eb='0'+_0xd9f0eb:_0xd9f0eb=_0xd9f0eb;var _0x50067c=Math[_0x2bdf12(0x1a5)](_0x2bdeb4%(0x3e8*0x3c*0x3c*0x18)/(0x3e8*0x3c*0x3c));if(_0x50067c<0xa)var _0x50067c='0'+_0x50067c;else _0x50067c=_0x50067c;var _0x41b18b=Math[_0x2bdf12(0x1a5)](_0x2bdeb4%(0x3e8*0x3c*0x3c)/(0x3e8*0x3c));if(_0x41b18b<0xa)var _0x41b18b='0'+_0x41b18b;else _0x41b18b=_0x41b18b;var _0x54de32=Math[_0x2bdf12(0x1a5)](_0x2bdeb4%(0x3e8*0x3c)/0x3e8);_0x2b9061[_0x2bdf12(0x199)]=_0xd9f0eb,_0x17eada[_0x2bdf12(0x199)]=_0x50067c,_0x1f19a0[_0x2bdf12(0x199)]=_0x41b18b,_0x55cad2[_0x2bdf12(0x199)]=_0x54de32;}},0x3e8);}}customElements[_0x3f1695(0x192)](_0x3f1695(0x18b),_0xebd295);})()));
+(() => {
+  if (customElements.get('iconic-countdown-timer')) {
+    return;
+  }
+  class Countdown extends HTMLElement {
+    constructor() {
+      super();
+      this.datetime = this.dataset.datetime;
+      this.hideCounterOnComplete = this.dataset.hideCounterOnComplete;
+    }
+
+    connectedCallback() {
+      this.initCountdown();
+    }
+
+    initCountdown() {
+      if(this.datetime.length  > 0 ){
+        var countDownDate = new Date(this.datetime).getTime();
+        var daysElement = this.querySelector('.js-days');
+        var hoursElement = this.querySelector('.js-hours');
+        var minutesElement = this.querySelector('.js-minutes');
+        var secondsElement = this.querySelector('.js-seconds');
+        var countdownTime = this.querySelector('.iconic-countdown-time');
+        var countdownMessage = this.querySelector(".iconic-countdown-message");
+        var hideCounterOnComplete = this.hideCounterOnComplete;
+        
+        var x = setInterval(function() { 
+          // Get todays date and time
+          var now = new Date().getTime(); 
+          // Find the distance between now an the count down date
+          var distance = countDownDate - now; 
+         
+          if (distance < 0) {
+            clearInterval(x);
+            if(hideCounterOnComplete == "yes") {
+              countdownTime.classList.add('iconic-d-none');
+            }
+            else {
+              countdownTime.classList.add('iconic-d-none');
+              countdownMessage.classList.remove('iconic-d-none');
+            }
+          }
+          else {
+            // Time calculations for days, hours, minutes and seconds
+            var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            if(days < 10 ) {
+              days = '0' + days;
+            }
+            else {
+              days = days;
+            }
+
+            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            if(hours  < 10 ) {
+              var hours = '0' + hours;
+            }
+            else {
+              hours = hours;
+            }
+
+            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            if(minutes  < 10 ) {
+              var minutes = '0' + minutes;
+            }
+            else {
+              minutes = minutes;
+            }
+
+            var seconds = Math.floor((distance % (1000 * 60)) / 1000); 
+
+            daysElement.innerText = days;
+            hoursElement.innerText = hours;
+            minutesElement.innerText = minutes;
+            secondsElement.innerText = seconds;     
+          }
+               
+        }, 1000);
+      }
+    }
+  }
+
+  customElements.define('iconic-countdown-timer', Countdown);
+})();

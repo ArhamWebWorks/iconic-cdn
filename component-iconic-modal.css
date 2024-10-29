@@ -4,4 +4,55 @@
   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 } */
 
-.iconic-modal-main{display:none;z-index:1050;background:#000000b5;position:fixed;top:0;left:0;overflow:hidden;width:100%;height:100%}.iconic-modal-main.show-modal{display:block}.iconic-modal-dialog{position:relative;top:50%;transform:translateY(-50%);margin:0 auto}.iconic-modal-lg{max-width:800px}.iconic-modal-md{max-width:500px}.iconic-modal-content{position:relative;overflow:hidden}.iconic-close-modal-btn{position:absolute;top:0;right:0;padding:15px;border:none;background:0 0;cursor:pointer;z-index:9}@media screen and (max-width:991px){.iconic-modal-lg{max-width:500px}}
+.iconic-modal-main {
+  display: none;
+  z-index: 1050;
+  background: #000000b5;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.iconic-modal-main.show-modal {
+  display: block;
+}
+
+.iconic-modal-dialog {
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0 auto;
+}
+
+.iconic-modal-lg {
+  max-width: 800px;
+}
+
+.iconic-modal-md {
+  max-width: 500px;
+}
+
+.iconic-modal-content {
+  position: relative;
+  overflow: hidden;
+}
+
+.iconic-close-modal-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 15px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  z-index: 9;
+}
+
+@media screen and (max-width: 991px) {
+  .iconic-modal-lg {
+    max-width: 500px;
+  }
+}

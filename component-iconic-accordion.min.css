@@ -1,0 +1,8 @@
+/* 
+  {
+    "name": "iconic-accordion.css",
+    "author": "Arham Web Works"
+    "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
+  }
+*/
+.iconic-accordion-content{cursor:pointer}.iconic-content-inner{opacity:0;visibility:hidden;height:0;transition:.6s}.iconic-accordion-main.open .iconic-icon-plus,.iconic-icon-minus{display:none}.iconic-icon-caret{transform:rotate(360deg);transition:.2s}.iconic-accordion-main.open .iconic-content-inner{opacity:1;visibility:visible;height:auto}.iconic-accordion-main.open .iconic-icon-minus{display:block}.iconic-accordion-main.open .iconic-icon-caret{transform:rotate(180deg)}

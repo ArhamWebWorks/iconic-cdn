@@ -1,0 +1,9 @@
+/* 
+  {
+    "name": "component-iconic-countdown-timer.css",
+    "author": "Arham Web Works"
+    "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
+  }
+*/
+
+.iconic-countdown-timer{--section-height-small:12.5rem;--section-height-medium:21.875rem;--section-height-large:28.125rem;--product-card-padding:2rem;--countdown-item-padding:1rem;--countdown-background-color:255,255,255;--caption-gap:1.75rem;--overlay-padding:3.75rem;--countdown-item-gap:2rem}.iconic-countdown-button:hover{text-decoration:none}.iconic-countdown-timer-overlay{background-size:cover;background-position:center center;background-repeat:no-repeat}.iconic-countdown-timer-small .iconic-countdown-timer-content{min-height:var(--section-height-small)}.iconic-countdown-timer-medium .iconic-countdown-timer-content{min-height:var(--section-height-medium)}.iconic-countdown-timer-large .iconic-countdown-timer-content{min-height:var(--section-height-large)}.iconic-countdown-items,.iconic-countdown-main{z-index:9}.iconic-countdown-time{grid-template-columns:repeat(4,1fr);min-width:fit-content}.iconic-countdown-timer-content{z-index:2}.iconic-countdown-message p:last-child{margin-bottom:0}.iconic-image-overlay{content:"";display:block;position:absolute;top:0;bottom:0;left:0;right:0;width:100%;height:100%;background-color:#000;opacity:1;z-index:1}.iconic-countdown-button{transition:.3s;border:1px solid transparent}
