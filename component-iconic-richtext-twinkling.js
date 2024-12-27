@@ -16,7 +16,6 @@ document.addEventListener('shopify:section:load', () => {
 function initializeShootingStarsForAllSections() {
   // Select all canvas elements with the class 'starCanvas'
   const canvases = document.querySelectorAll('.starCanvas');
-  console.log('test area',canvases);
   canvases.forEach((canvas, index) => {
     const canvasId = `starCanvas${index}`;
     canvas.id = canvasId; // Assign each canvas a unique ID dynamically
