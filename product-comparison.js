@@ -4,6 +4,50 @@
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
 
+function iconicDescriptionImageUrl(img) {
+  return (
+    img.currentSrc ||
+    img.getAttribute("src") ||
+    img.getAttribute("data-src") ||
+    ""
+  ).trim();
+}
+
+function iconicIsHttpUrl(url) {
+  try {
+    var u = new URL(url, window.location.href);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch (e) {
+    return false;
+  }
+}
+
+function iconicReplaceDescriptionImages(root) {
+  var scope = root || document;
+  scope.querySelectorAll(".iconic-attr-description").forEach(function (container) {
+    Array.from(container.querySelectorAll("img")).forEach(function (img, index) {
+      if (img.closest("a")) return;
+      var url = iconicDescriptionImageUrl(img);
+      if (!url || !iconicIsHttpUrl(url)) {
+        img.remove();
+        return;
+      }
+      var a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.className = "iconic-attr-description__image-link";
+      a.textContent = "Image " + (index + 1);
+      a.title = url;
+      img.replaceWith(a);
+    });
+  });
+}
+
+function iconicInitDescriptionImageLinks() {
+  iconicReplaceDescriptionImages();
+}
+
 function scrollToAddToCart() {
   const addToCartForm = document.querySelector('form[action="/cart/add"]');
   
@@ -29,6 +73,9 @@ function scrollToAddToCart() {
         initProductComparison(sectionId, sectionElement);
       }
     });
+    if (typeof iconicInitDescriptionImageLinks === 'function') {
+      iconicInitDescriptionImageLinks();
+    }
   }
 
   // Initialize a single product comparison section
@@ -864,15 +911,104 @@ function scrollToAddToCart() {
   }
 
   // ============================================================================
+  // PRODUCT SPECIFICATION TABLE (same asset as comparison)
+  // ============================================================================
+
+  function initProductSpecification(section) {
+    if (!section || section.dataset.specInitialized === "true") return;
+    section.dataset.specInitialized = "true";
+
+    var allRows = Array.prototype.slice.call(section.querySelectorAll("[data-row-kind]"));
+    var showMoreBtn = section.querySelector("[data-show-all-btn]");
+    var initialRows = parseInt(section.dataset.initialRows || "10", 10);
+    var expanded = false;
+
+    function updateRows() {
+      var specRows = allRows.filter(function (row) {
+        return row.getAttribute("data-row-kind") === "spec";
+      });
+      var headingRows = allRows.filter(function (row) {
+        return row.getAttribute("data-row-kind") === "heading";
+      });
+
+      specRows.forEach(function (row, index) {
+        if (!expanded && index >= initialRows) {
+          row.classList.add("iconic-d-none");
+        } else {
+          row.classList.remove("iconic-d-none");
+        }
+      });
+
+      headingRows.forEach(function (heading) {
+        var hasVisibleSpecUnderHeading = false;
+        var cursor = heading.nextElementSibling;
+
+        while (cursor) {
+          var kind = cursor.getAttribute("data-row-kind");
+          if (kind === "heading") break;
+          if (kind === "spec" && cursor.classList.contains("iconic-d-none") === false) {
+            hasVisibleSpecUnderHeading = true;
+            break;
+          }
+          cursor = cursor.nextElementSibling;
+        }
+
+        heading.classList.toggle("iconic-d-none", !hasVisibleSpecUnderHeading);
+      });
+
+      if (!showMoreBtn) return;
+
+      if (specRows.length <= initialRows) {
+        showMoreBtn.classList.add("iconic-d-none");
+        return;
+      }
+
+      showMoreBtn.classList.remove("iconic-d-none");
+      if (expanded) {
+        showMoreBtn.textContent = "Show Less";
+      } else {
+        showMoreBtn.textContent = "Show All";
+      }
+    }
+
+    if (showMoreBtn) {
+      showMoreBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        expanded = !expanded;
+        updateRows();
+      });
+    }
+
+    updateRows();
+    if (typeof iconicReplaceDescriptionImages === "function") {
+      iconicReplaceDescriptionImages(section);
+    }
+  }
+
+  function initAllProductSpecificationSections() {
+    document.querySelectorAll("[data-iconic-product-specification]").forEach(function (section) {
+      initProductSpecification(section);
+    });
+  }
+
+  // ============================================================================
   // INITIALIZATION
   // ============================================================================
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAllSections);
-  } else {
+
+  function initIconicStorefrontBlocks() {
     initAllSections();
+    initAllProductSpecificationSections();
   }
-  
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIconicStorefrontBlocks);
+  } else {
+    initIconicStorefrontBlocks();
+  }
+
+  document.addEventListener("shopify:section:load", initIconicStorefrontBlocks);
+  document.addEventListener("shopify:section:select", initIconicStorefrontBlocks);
+
   const bodyObserver = new MutationObserver(function(mutations) {
     let shouldCheck = false;
     mutations.forEach(function(mutation) {
@@ -880,7 +1016,9 @@ function scrollToAddToCart() {
         mutation.addedNodes.forEach(function(node) {
           if (node.nodeType === 1 && (
             node.hasAttribute && node.hasAttribute('data-iconic-product-comparison') ||
-            node.querySelector && node.querySelector('[data-iconic-product-comparison]')
+            node.querySelector && node.querySelector('[data-iconic-product-comparison]') ||
+            node.hasAttribute && node.hasAttribute('data-iconic-product-specification') ||
+            node.querySelector && node.querySelector('[data-iconic-product-specification]')
           )) {
             shouldCheck = true;
           }
@@ -888,7 +1026,7 @@ function scrollToAddToCart() {
       }
     });
     if (shouldCheck) {
-      setTimeout(initAllSections, 100);
+      setTimeout(initIconicStorefrontBlocks, 100);
     }
   });
   
