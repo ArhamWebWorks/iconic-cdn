@@ -216,7 +216,7 @@ function scrollToAddToCart() {
           content.style.setProperty(name, val.trim());
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function ipcClearTooltipCustomProps(content) {
@@ -237,7 +237,7 @@ function scrollToAddToCart() {
           content,
           content._ipcOriginalNextSibling || null
         );
-      } catch (e) {}
+      } catch (e) { }
       content._ipcOriginalParent = null;
       content._ipcOriginalNextSibling = null;
     }
@@ -1399,6 +1399,11 @@ function scrollToAddToCart() {
       showMoreBtn.addEventListener("click", function (event) {
         event.preventDefault();
         expanded = !expanded;
+        if (expanded) {
+          section.querySelectorAll(".iconic-spec-narrow-hide").forEach(function (el) {
+            el.classList.remove("iconic-spec-narrow-hide");
+          });
+        }
         updateRows();
       });
     }
