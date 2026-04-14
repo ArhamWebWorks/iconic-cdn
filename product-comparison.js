@@ -1309,6 +1309,11 @@ function scrollToAddToCart() {
     var allRows = Array.prototype.slice.call(section.querySelectorAll("[data-row-kind]"));
     var showMoreBtn = section.querySelector("[data-show-all-btn]");
     var initialRows = parseInt(section.dataset.initialRows || "10", 10);
+    var totalSpecItemsAttr = section.dataset.totalSpecItems;
+    var totalSpecItems =
+      totalSpecItemsAttr !== undefined && totalSpecItemsAttr !== ""
+        ? parseInt(totalSpecItemsAttr, 10)
+        : NaN;
     var hideEmpty = section.dataset.hideEmptyRows === "true";
     var expanded = false;
 
@@ -1343,27 +1348,31 @@ function scrollToAddToCart() {
         return row.getAttribute("data-row-kind") === "heading";
       });
 
-      specRows.forEach(function (row) {
-        row.querySelectorAll(".iconic-product-specification__item").forEach(function (item) {
-          if (hideEmpty && isItemEmpty(item)) {
-            item.classList.add("iconic-d-none");
-          } else {
-            item.classList.remove("iconic-d-none");
-          }
-        });
-      });
-
-      var visibleCount = 0;
+      // initialRows = attribute count (matches Liquid). Multicol packs 2 attrs per spec row — row-based hide showed double after Show less.
+      var attrIndex = 0;
       specRows.forEach(function (row) {
         if (hideEmpty && isRowFullyEmpty(row)) {
           row.classList.add("iconic-d-none");
           return;
         }
-        if (!expanded && visibleCount >= initialRows) {
+        row.classList.remove("iconic-d-none");
+        row.querySelectorAll(".iconic-product-specification__item").forEach(function (item) {
+          if (hideEmpty && isItemEmpty(item)) {
+            item.classList.add("iconic-d-none");
+            return;
+          }
+          if (!expanded && attrIndex >= initialRows) {
+            item.classList.add("iconic-d-none");
+          } else {
+            item.classList.remove("iconic-d-none");
+          }
+          attrIndex += 1;
+        });
+        var visibleInRow = row.querySelectorAll(
+          ".iconic-product-specification__item:not(.iconic-d-none)"
+        ).length;
+        if (visibleInRow === 0) {
           row.classList.add("iconic-d-none");
-        } else {
-          row.classList.remove("iconic-d-none");
-          visibleCount++;
         }
       });
 
@@ -1374,8 +1383,13 @@ function scrollToAddToCart() {
           var kind = cursor.getAttribute("data-row-kind");
           if (kind === "heading") break;
           if (kind === "spec" && !cursor.classList.contains("iconic-d-none")) {
-            hasVisible = true;
-            break;
+            var visItems = cursor.querySelectorAll(
+              ".iconic-product-specification__item:not(.iconic-d-none)"
+            );
+            if (visItems.length) {
+              hasVisible = true;
+              break;
+            }
           }
           cursor = cursor.nextElementSibling;
         }
@@ -1386,8 +1400,19 @@ function scrollToAddToCart() {
       var nonEmptyRowCount = specRows.filter(function (row) {
         return !(hideEmpty && isRowFullyEmpty(row));
       }).length;
+      var isMulticol = section.classList.contains(
+        "iconic-product-specification--app-multicol"
+      );
+      var hasMoreThanInitial;
+      if (!isNaN(totalSpecItems) && totalSpecItems > 0) {
+        hasMoreThanInitial = totalSpecItems > initialRows;
+      } else if (isMulticol) {
+        hasMoreThanInitial = nonEmptyRowCount * 2 > initialRows;
+      } else {
+        hasMoreThanInitial = nonEmptyRowCount > initialRows;
+      }
 
-      if (nonEmptyRowCount <= initialRows) {
+      if (!hasMoreThanInitial) {
         showMoreBtn.classList.add("iconic-d-none");
       } else {
         showMoreBtn.classList.remove("iconic-d-none");
