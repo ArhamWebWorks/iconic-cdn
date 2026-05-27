@@ -156,6 +156,39 @@
     btn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
   }
 
+  function sendFbtTrack(apiBase, event) {
+    if (!apiBase || !navigator.sendBeacon) return;
+    var shop = (typeof Shopify !== 'undefined' && Shopify.shop) ? Shopify.shop : '';
+    if (!shop) return;
+    try {
+      var payload = JSON.stringify({ shop: shop, event: event });
+      navigator.sendBeacon(apiBase + '/api/analytics/event', new Blob([payload], { type: 'application/json' }));
+    } catch (e) {}
+  }
+
+  function initFbtViewTracking(container) {
+    if (container.dataset.fbtViewTrackInit === 'true') return;
+    container.dataset.fbtViewTrackInit = 'true';
+    if (typeof IntersectionObserver === 'undefined') return;
+    var block = container.closest('.iconic-block-fbt') || container;
+    var viewTimer = null;
+    var viewFired = false;
+    var observer = new IntersectionObserver(function (entries) {
+      var entry = entries[0];
+      if (entry.isIntersecting && !viewFired) {
+        viewTimer = setTimeout(function () {
+          viewFired = true;
+          sendFbtTrack(IconicFbtApi.resolveApiBase(container), 'bundle_viewed');
+          observer.disconnect();
+        }, 3000);
+      } else {
+        clearTimeout(viewTimer);
+        viewTimer = null;
+      }
+    }, { threshold: 0.5 });
+    observer.observe(block);
+  }
+
   function parseDiscountConfig(container) {
     if (container._iconicFbtDiscountConfig !== undefined) return container._iconicFbtDiscountConfig;
 
@@ -736,6 +769,7 @@
       return;
     }
     container.dataset.iconicFbtBound = 'true';
+    initFbtViewTracking(container);
 
     setStatus(container, '', '');
 
@@ -810,6 +844,7 @@
         });
 
         if (selectedRows.length === 0) return;
+        sendFbtTrack(IconicFbtApi.resolveApiBase(container), 'bundle_add_to_cart_clicked');
         setBusy(container, true);
 
         // Unique ID that groups all lines of this bundle together in the cart
