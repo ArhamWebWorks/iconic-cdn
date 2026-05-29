@@ -1060,6 +1060,36 @@
     };
   }
 
+  // Call /api/recommendation/enrich to get rating data for randomly-fetched products.
+  async function enrichProductsWithRatings(products, shop, apiBase) {
+    if (!products.length || !shop || !apiBase) return products;
+    const ids = products.map(function(p) {
+      var m = /\/(\d+)$/.exec(String(p.id || p.gid || ''));
+      return m ? m[1] : null;
+    }).filter(Boolean);
+    if (!ids.length) return products;
+    try {
+      var url = apiBase + '/api/recommendation/enrich?shop=' + encodeURIComponent(shop) + '&ids=' + ids.join(',');
+      var res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+      if (!res.ok) return products;
+      var json = await res.json();
+      var ratingsMap = json.ratings || {};
+      return products.map(function(p) {
+        var m = /\/(\d+)$/.exec(String(p.id || p.gid || ''));
+        var numId = m ? m[1] : null;
+        if (numId && ratingsMap[numId]) {
+          return Object.assign({}, p, {
+            rating: ratingsMap[numId].rating,
+            ratingCount: ratingsMap[numId].ratingCount,
+          });
+        }
+        return p;
+      });
+    } catch (e) {
+      return products;
+    }
+  }
+
   async function fetchRandomProducts(container, randomHint, excludedProductGids, sourceProductId) {
     var needed = randomHint && randomHint.needed;
     if (!needed || needed <= 0) return [];
@@ -1136,8 +1166,14 @@
         const data = await IconicFbtApi.fetchRecommendations(shop, productId, container);
 
         if (data && data.randomHint && data.randomHint.needed > 0) {
-          const randomProducts = await fetchRandomProducts(container, data.randomHint, data.excludedProductGids, productId);
+          let randomProducts = await fetchRandomProducts(container, data.randomHint, data.excludedProductGids, productId);
           if (randomProducts.length) {
+            // Enrich random products with ratings from the app cache (Admin API metafields).
+            randomProducts = await enrichProductsWithRatings(
+              randomProducts,
+              shop,
+              IconicFbtApi.resolveApiBase(container)
+            );
             data.recommendationProducts = (data.recommendationProducts || []).concat(randomProducts);
           }
         }
