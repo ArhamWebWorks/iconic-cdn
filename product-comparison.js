@@ -1437,6 +1437,7 @@ function scrollToAddToCart() {
     if (typeof iconicReplaceDescriptionImages === "function") {
       iconicReplaceDescriptionImages(section);
     }
+    section._iconicSpecRefresh = updateRows;
   }
 
   function initAllProductSpecificationSections() {
@@ -1451,14 +1452,115 @@ function scrollToAddToCart() {
     ipcBindFixedTooltips(document);
   }
 
+  function ipcGetCurrentVariantId() {
+    var idInput = document.querySelector(
+      'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"]'
+    );
+    if (idInput && idInput.value) return String(idInput.value);
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var fromUrl = params.get('variant');
+      if (fromUrl) return fromUrl;
+    } catch (e) {}
+    return null;
+  }
+
+  function ipcApplyVariantToSpecTables(variantId) {
+    if (!variantId) return;
+    document
+      .querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]')
+      .forEach(function (item) {
+        var map = item._ipcVariantMap;
+        if (!map) {
+          var raw = item.getAttribute('data-ipc-variant-values');
+          if (!raw) return;
+          try {
+            var list = JSON.parse(raw);
+          } catch (e) {
+            return;
+          }
+          map = {};
+          list.forEach(function (entry) {
+            if (entry && entry.id !== undefined) {
+              map[String(entry.id)] = entry.html;
+            }
+          });
+          item._ipcVariantMap = map;
+        }
+        if (!Object.prototype.hasOwnProperty.call(map, String(variantId))) return;
+        var valueEl = item.querySelector('.iconic-product-specification__value');
+        if (valueEl) valueEl.innerHTML = map[String(variantId)];
+      });
+
+    document.querySelectorAll('[data-iconic-product-specification]').forEach(function (section) {
+      if (typeof section._iconicSpecRefresh === 'function') {
+        section._iconicSpecRefresh();
+      }
+    });
+    ipcBindFixedTooltips(document);
+  }
+
+  var ipcLastVariantId = null;
+  function ipcCheckVariantChange() {
+    var variantId = ipcGetCurrentVariantId();
+    if (variantId && variantId !== ipcLastVariantId) {
+      ipcLastVariantId = variantId;
+      ipcApplyVariantToSpecTables(variantId);
+    }
+  }
+
+  function ipcScheduleVariantCheck() {
+    setTimeout(ipcCheckVariantChange, 0);
+    setTimeout(ipcCheckVariantChange, 150);
+    setTimeout(ipcCheckVariantChange, 400);
+  }
+
+  document.addEventListener(
+    'change',
+    function (e) {
+      var target = e.target;
+      if (target && target.closest && target.closest('form[action*="/cart/add"]')) {
+        ipcScheduleVariantCheck();
+      }
+    },
+    true
+  );
+  document.addEventListener(
+    'click',
+    function (e) {
+      var target = e.target;
+      if (
+        target &&
+        target.closest &&
+        target.closest(
+          'variant-radios, variant-selects, [data-variant-id], .product-form__input, [name="id"]'
+        )
+      ) {
+        ipcScheduleVariantCheck();
+      }
+    },
+    true
+  );
+  document.addEventListener('variant:change', ipcScheduleVariantCheck);
+  window.addEventListener('popstate', ipcScheduleVariantCheck);
+
+  function ipcInitVariantBaseline() {
+    ipcLastVariantId = ipcGetCurrentVariantId();
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initIconicStorefrontBlocks);
+    document.addEventListener('DOMContentLoaded', function () {
+      initIconicStorefrontBlocks();
+      ipcInitVariantBaseline();
+    });
   } else {
     initIconicStorefrontBlocks();
+    ipcInitVariantBaseline();
   }
 
   document.addEventListener("shopify:section:load", initIconicStorefrontBlocks);
   document.addEventListener("shopify:section:select", initIconicStorefrontBlocks);
+  document.addEventListener("shopify:section:load", ipcScheduleVariantCheck);
 
   const bodyObserver = new MutationObserver(function (mutations) {
     let shouldCheck = false;
