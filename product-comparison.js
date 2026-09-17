@@ -2185,6 +2185,41 @@ function scrollToAddToCart() {
     IpcVariantManager.scheduleCheck();
   }
 
+  // Debug/inspection surface — not required for the feature to work, but lets
+  // anyone check *why* a spec table isn't updating for a given variant without
+  // needing a new deploy just to add a console.log. Usage in the browser console:
+  //   window.IconicPC.debugSpecVariant()
+  window.IconicPC = window.IconicPC || {};
+  window.IconicPC.variantManager = IpcVariantManager;
+  window.IconicPC.debugSpecVariant = function (sectionEl) {
+    var section = sectionEl || document.querySelector('[data-iconic-product-specification]');
+    if (!section) {
+      console.warn('[IconicPC] No [data-iconic-product-specification] section found on this page.');
+      return null;
+    }
+    var data = IpcVariantManager.getSectionData(section);
+    var resolved = IpcVariantManager.resolveVariantIdForSection(section);
+    var info = {
+      perVariantItemCount: section.querySelectorAll('[data-ipc-per-variant="1"]').length,
+      totalItemCount: section.querySelectorAll('.iconic-product-specification__item').length,
+      validVariantIds: Array.from(data.validIds || []),
+      catalogSample: (data.catalog || []).slice(0, 3),
+      resolvedVariantId: resolved,
+      appliedVariantId: section._ipcAppliedVariantId || null,
+      currentUrlVariant: (function () {
+        try { return new URLSearchParams(window.location.search).get('variant'); } catch (e) { return null; }
+      })(),
+      idInputValue: (function () {
+        var el = document.querySelector(
+          'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"]'
+        );
+        return el ? el.value : null;
+      })()
+    };
+    console.log('[IconicPC] Spec table variant debug:', info);
+    return info;
+  };
+
   // Storefront bootstrap
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
