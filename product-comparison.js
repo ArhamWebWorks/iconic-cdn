@@ -1456,7 +1456,7 @@ function scrollToAddToCart() {
     var ids = [];
     document
       .querySelectorAll(
-        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], [name="id"][form]'
+        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"], [name="id"][form]'
       )
       .forEach(function (el) {
         if (el && el.value) ids.push(String(el.value));
@@ -1530,6 +1530,97 @@ function scrollToAddToCart() {
     setTimeout(ipcCheckVariantChange, 400);
   }
 
+  // ── NEW: MutationObserver + property descriptor on [name="id"] inputs ──
+  // MutationObserver catches setAttribute('value', ...) changes.
+  // The property descriptor override catches programmatic .value = X assignments
+  // which is how most themes (Dawn, Refresh, etc.) update the hidden input.
+  var ipcVariantInputObserver = null;
+  function ipcObserveVariantInputs() {
+    var inputs = document.querySelectorAll(
+      'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"]'
+    );
+    if (!inputs.length) return;
+
+    if (!ipcVariantInputObserver) {
+      ipcVariantInputObserver = new MutationObserver(function () {
+        ipcScheduleVariantCheck();
+      });
+    }
+
+    inputs.forEach(function (input) {
+      if (input._ipcVariantObserved) return;
+      input._ipcVariantObserved = true;
+
+      // Watch for attribute-based value changes (setAttribute)
+      ipcVariantInputObserver.observe(input, {
+        attributes: true,
+        attributeFilter: ['value']
+      });
+
+      // Override the .value property setter to catch programmatic assignments
+      // This is key: most themes do input.value = newVariantId, which does NOT
+      // fire change events or trigger MutationObserver.
+      try {
+        // First check if the element already has its own descriptor (another
+        // app or script may have overridden it). If so, chain to theirs.
+        var descriptor = Object.getOwnPropertyDescriptor(input, 'value');
+        if (!descriptor || !descriptor.set) {
+          // No own descriptor — get from the prototype chain
+          var proto = Object.getPrototypeOf(input);
+          descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+        }
+        if (!descriptor || !descriptor.set) {
+          // Fallback: handle both <input> and <select> elements
+          var tag = (input.tagName || '').toUpperCase();
+          if (tag === 'SELECT') {
+            descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+          } else {
+            descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+          }
+        }
+        if (descriptor && descriptor.set) {
+          var originalSet = descriptor.set;
+          var originalGet = descriptor.get;
+          Object.defineProperty(input, 'value', {
+            get: function () { return originalGet.call(this); },
+            set: function (val) {
+              var prev = originalGet.call(this);
+              originalSet.call(this, val);
+              if (String(val) !== String(prev)) {
+                ipcScheduleVariantCheck();
+              }
+            },
+            configurable: true
+          });
+        }
+      } catch (e) {
+        // Fallback: property descriptor override not supported in this context
+      }
+    });
+  }
+
+  // ── NEW: History API interception ──────────────────────────────────
+  // Many themes update ?variant=ID via history.replaceState which does NOT
+  // fire popstate. This intercept catches those URL updates.
+  function ipcInterceptHistoryApi() {
+    if (window._ipcHistoryIntercepted) return;
+    window._ipcHistoryIntercepted = true;
+
+    var origPush = history.pushState;
+    var origReplace = history.replaceState;
+
+    history.pushState = function () {
+      var result = origPush.apply(this, arguments);
+      ipcScheduleVariantCheck();
+      return result;
+    };
+    history.replaceState = function () {
+      var result = origReplace.apply(this, arguments);
+      ipcScheduleVariantCheck();
+      return result;
+    };
+  }
+
   document.addEventListener(
     'change',
     function (e) {
@@ -1557,7 +1648,28 @@ function scrollToAddToCart() {
     true
   );
   document.addEventListener('variant:change', ipcScheduleVariantCheck);
+  document.addEventListener('variant:changed', ipcScheduleVariantCheck);
+  document.addEventListener('variantChange', ipcScheduleVariantCheck);
   window.addEventListener('popstate', ipcScheduleVariantCheck);
+
+  // Listen for 'input' event too (not just 'change') — catches select/radio
+  // value changes in some themes that fire input but not change
+  document.addEventListener(
+    'input',
+    function (e) {
+      var target = e.target;
+      if (
+        target &&
+        target.closest &&
+        target.closest(
+          'form[action*="/cart/add"], product-form, .product-form, variant-radios, variant-selects'
+        )
+      ) {
+        ipcScheduleVariantCheck();
+      }
+    },
+    true
+  );
 
   // Theme-agnostic safety net: some variant pickers are custom buttons/components
   // that don't fire 'change', a recognizable click target, or a 'popstate' event
@@ -1573,34 +1685,60 @@ function scrollToAddToCart() {
     document.addEventListener('DOMContentLoaded', function () {
       initIconicStorefrontBlocks();
       ipcInitVariantBaseline();
+      ipcObserveVariantInputs();
+      ipcInterceptHistoryApi();
     });
   } else {
     initIconicStorefrontBlocks();
     ipcInitVariantBaseline();
+    ipcObserveVariantInputs();
+    ipcInterceptHistoryApi();
   }
 
   document.addEventListener("shopify:section:load", initIconicStorefrontBlocks);
   document.addEventListener("shopify:section:select", initIconicStorefrontBlocks);
   document.addEventListener("shopify:section:load", ipcScheduleVariantCheck);
+  document.addEventListener("shopify:section:load", function () {
+    setTimeout(ipcObserveVariantInputs, 200);
+  });
+  document.addEventListener("shopify:section:rerender", function () {
+    setTimeout(function () {
+      ipcScheduleVariantCheck();
+      ipcObserveVariantInputs();
+    }, 200);
+  });
 
   const bodyObserver = new MutationObserver(function (mutations) {
     let shouldCheck = false;
+    let hasNewForms = false;
     mutations.forEach(function (mutation) {
       if (mutation.addedNodes.length > 0) {
         mutation.addedNodes.forEach(function (node) {
-          if (node.nodeType === 1 && (
-            node.hasAttribute && node.hasAttribute('data-iconic-product-comparison') ||
-            node.querySelector && node.querySelector('[data-iconic-product-comparison]') ||
-            node.hasAttribute && node.hasAttribute('data-iconic-product-specification') ||
-            node.querySelector && node.querySelector('[data-iconic-product-specification]')
-          )) {
-            shouldCheck = true;
+          if (node.nodeType === 1) {
+            if (
+              node.hasAttribute && node.hasAttribute('data-iconic-product-comparison') ||
+              node.querySelector && node.querySelector('[data-iconic-product-comparison]') ||
+              node.hasAttribute && node.hasAttribute('data-iconic-product-specification') ||
+              node.querySelector && node.querySelector('[data-iconic-product-specification]')
+            ) {
+              shouldCheck = true;
+            }
+            // Also check if new product forms or variant inputs were added
+            if (
+              node.matches && node.matches('form[action*="/cart/add"], product-form, .product-form') ||
+              node.querySelector && node.querySelector('form[action*="/cart/add"], product-form, .product-form, [name="id"]')
+            ) {
+              hasNewForms = true;
+            }
           }
         });
       }
     });
     if (shouldCheck) {
       setTimeout(initIconicStorefrontBlocks, 100);
+    }
+    if (shouldCheck || hasNewForms) {
+      setTimeout(ipcObserveVariantInputs, 200);
     }
   });
 
