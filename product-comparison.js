@@ -1452,21 +1452,25 @@ function scrollToAddToCart() {
     ipcBindFixedTooltips(document);
   }
 
-  function ipcGetCurrentVariantId() {
-    var idInput = document.querySelector(
-      'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"]'
-    );
-    if (idInput && idInput.value) return String(idInput.value);
+  function ipcGetVariantIdCandidates() {
+    var ids = [];
+    document
+      .querySelectorAll(
+        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], [name="id"][form]'
+      )
+      .forEach(function (el) {
+        if (el && el.value) ids.push(String(el.value));
+      });
     try {
       var params = new URLSearchParams(window.location.search);
       var fromUrl = params.get('variant');
-      if (fromUrl) return fromUrl;
+      if (fromUrl) ids.push(fromUrl);
     } catch (e) {}
-    return null;
+    return ids;
   }
 
-  function ipcApplyVariantToSpecTables(variantId) {
-    if (!variantId) return;
+  function ipcApplyVariantToSpecTables(candidateIds) {
+    if (!candidateIds || !candidateIds.length) return;
     document
       .querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]')
       .forEach(function (item) {
@@ -1487,9 +1491,19 @@ function scrollToAddToCart() {
           });
           item._ipcVariantMap = map;
         }
-        if (!Object.prototype.hasOwnProperty.call(map, String(variantId))) return;
+        // Each row only reacts to a candidate id that belongs to its own
+        // product's variant map, so unrelated forms/products on the same
+        // page (related products, upsells, quick-add) can't cross-apply.
+        var matchedId = null;
+        for (var i = 0; i < candidateIds.length; i += 1) {
+          if (Object.prototype.hasOwnProperty.call(map, candidateIds[i])) {
+            matchedId = candidateIds[i];
+            break;
+          }
+        }
+        if (matchedId === null) return;
         var valueEl = item.querySelector('.iconic-product-specification__value');
-        if (valueEl) valueEl.innerHTML = map[String(variantId)];
+        if (valueEl) valueEl.innerHTML = map[matchedId];
       });
 
     document.querySelectorAll('[data-iconic-product-specification]').forEach(function (section) {
@@ -1500,12 +1514,13 @@ function scrollToAddToCart() {
     ipcBindFixedTooltips(document);
   }
 
-  var ipcLastVariantId = null;
+  var ipcLastVariantCandidatesKey = '';
   function ipcCheckVariantChange() {
-    var variantId = ipcGetCurrentVariantId();
-    if (variantId && variantId !== ipcLastVariantId) {
-      ipcLastVariantId = variantId;
-      ipcApplyVariantToSpecTables(variantId);
+    var candidateIds = ipcGetVariantIdCandidates();
+    var key = candidateIds.join('|');
+    if (key && key !== ipcLastVariantCandidatesKey) {
+      ipcLastVariantCandidatesKey = key;
+      ipcApplyVariantToSpecTables(candidateIds);
     }
   }
 
@@ -1544,8 +1559,14 @@ function scrollToAddToCart() {
   document.addEventListener('variant:change', ipcScheduleVariantCheck);
   window.addEventListener('popstate', ipcScheduleVariantCheck);
 
+  // Theme-agnostic safety net: some variant pickers are custom buttons/components
+  // that don't fire 'change', a recognizable click target, or a 'popstate' event
+  // (e.g. they update the URL via history.pushState/replaceState, which fires
+  // neither). Polling guarantees the spec table still catches the swap.
+  setInterval(ipcCheckVariantChange, 300);
+
   function ipcInitVariantBaseline() {
-    ipcLastVariantId = ipcGetCurrentVariantId();
+    ipcLastVariantCandidatesKey = ipcGetVariantIdCandidates().join('|');
   }
 
   if (document.readyState === 'loading') {
