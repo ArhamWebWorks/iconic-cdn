@@ -1452,293 +1452,782 @@ function scrollToAddToCart() {
     ipcBindFixedTooltips(document);
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // IPC VARIANT MANAGER: Unified, Real-Time, Theme-Agnostic Variant Detection
+  // ──────────────────────────────────────────────────────────────────────────
+  var IpcVariantManager = (function () {
+    var _initialized = false;
+    var _activePollTimer = null;
+    var _mutationObserver = null;
+
+    // Normalize string for robust comparisons (case, whitespace)
+    function norm(str) {
+      return String(str || '').trim().toLowerCase();
+    }
+
+    // Alphanumeric-only normalization for price/symbol fuzzy matching ($10 vs 10)
+    function normAlphaNum(str) {
+      return norm(str).replace(/[^a-z0-9]/g, '');
+    }
+
+    // Safe JSON parser
+    function safeJsonParse(val) {
+      if (!val) return null;
+      try {
+        var parsed = JSON.parse(val);
+        if (typeof parsed === 'string' && (parsed.trim().startsWith('[') || parsed.trim().startsWith('{'))) {
+          return JSON.parse(parsed);
+        }
+        return parsed;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 1. Extract Valid Variant IDs & Variant Catalog from Spec Items in a Section
+    function getSectionData(section) {
+      if (!section) return { validIds: new Set(), catalog: [] };
+      if (section._ipcSectionData) return section._ipcSectionData;
+
+      var validIds = new Set();
+      var catalog = [];
+      var catalogFilled = false;
+
+      var items = section.querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]');
+      items.forEach(function (item) {
+        var raw = item.getAttribute('data-ipc-variant-values');
+        if (!raw) return;
+
+        if (!item._ipcVariantMap) {
+          var list = safeJsonParse(raw);
+          if (Array.isArray(list)) {
+            var map = {};
+            list.forEach(function (entry) {
+              if (entry && entry.id !== undefined && entry.id !== null) {
+                var sId = String(entry.id);
+                map[sId] = entry.html || '';
+                validIds.add(sId);
+                if (!catalogFilled && (entry.options || entry.title)) {
+                  catalog.push({
+                    id: sId,
+                    title: entry.title || '',
+                    options: Array.isArray(entry.options) ? entry.options : (entry.options ? [entry.options] : [])
+                  });
+                }
+              }
+            });
+            item._ipcVariantMap = map;
+            if (catalog.length > 0) catalogFilled = true;
+          }
+        } else {
+          Object.keys(item._ipcVariantMap).forEach(function (id) {
+            validIds.add(String(id));
+          });
+        }
+      });
+
+      var data = { validIds: validIds, catalog: catalog };
+      section._ipcSectionData = data;
+      return data;
+    }
+
+    // 2. Locate Product Variants Catalog from Theme Elements / Scripts (if not in section)
+    function findProductVariantsCatalog(section, validIds) {
+      var sData = getSectionData(section);
+      if (sData.catalog && sData.catalog.length > 0) {
+        return sData.catalog;
+      }
+
+      // Check Dawn / OS 2.0 <variant-radios> or <variant-selects>
+      var pickers = document.querySelectorAll('variant-radios, variant-selects, [data-variant-picker]');
+      for (var i = 0; i < pickers.length; i++) {
+        var picker = pickers[i];
+        if (typeof picker.getVariantData === 'function') {
+          try {
+            var vData = picker.getVariantData();
+            if (Array.isArray(vData) && vData.length > 0) {
+              var matches = vData.some(function (v) { return v && validIds.has(String(v.id)); });
+              if (matches) {
+                sData.catalog = vData;
+                return vData;
+              }
+            }
+          } catch (e) {}
+        }
+        var jsonScript = picker.querySelector('script[type="application/json"]');
+        if (jsonScript) {
+          var parsed = safeJsonParse(jsonScript.textContent);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            var m = parsed.some(function (v) { return v && validIds.has(String(v.id)); });
+            if (m) {
+              sData.catalog = parsed;
+              return parsed;
+            }
+          }
+        }
+      }
+
+      // Check JSON scripts on the page
+      var scripts = document.querySelectorAll('script[type="application/json"]');
+      for (var j = 0; j < scripts.length; j++) {
+        var text = scripts[j].textContent || '';
+        if (text.indexOf('variants') === -1 && text.indexOf('public_title') === -1) continue;
+        var sObj = safeJsonParse(text);
+        if (!sObj) continue;
+        var varList = Array.isArray(sObj) ? sObj : (sObj && Array.isArray(sObj.variants) ? sObj.variants : null);
+        if (Array.isArray(varList) && varList.length > 0) {
+          var matched = varList.some(function (v) { return v && validIds.has(String(v.id)); });
+          if (matched) {
+            sData.catalog = varList;
+            return varList;
+          }
+        }
+      }
+
+      // Check ShopifyAnalytics global meta
+      try {
+        var saVars = window.ShopifyAnalytics &&
+                     window.ShopifyAnalytics.meta &&
+                     window.ShopifyAnalytics.meta.product &&
+                     window.ShopifyAnalytics.meta.product.variants;
+        if (Array.isArray(saVars) && saVars.length > 0) {
+          var saMatches = saVars.some(function (v) { return v && validIds.has(String(v.id)); });
+          if (saMatches) {
+            var normSa = saVars.map(function (v) {
+              var opts = [];
+              if (v.public_title) {
+                opts = v.public_title.split(' / ');
+              }
+              return {
+                id: String(v.id),
+                title: v.public_title || v.name || '',
+                options: opts
+              };
+            });
+            sData.catalog = normSa;
+            return normSa;
+          }
+        }
+      } catch (e) {}
+
+      // Fallback: Check native <select name="id"> options
+      var nativeSelects = document.querySelectorAll('select[name="id"], form[action*="/cart/add"] select[name="id"]');
+      for (var k = 0; k < nativeSelects.length; k++) {
+        var sel = nativeSelects[k];
+        if (sel.options && sel.options.length > 0) {
+          var selVariants = [];
+          var selMatches = false;
+          for (var optIdx = 0; optIdx < sel.options.length; optIdx++) {
+            var o = sel.options[optIdx];
+            var oVal = String(o.value || '').trim();
+            if (validIds.has(oVal)) {
+              selMatches = true;
+            }
+            var title = (o.textContent || '').trim();
+            var cleanTitle = title.split(' - ')[0].trim();
+            selVariants.push({
+              id: oVal,
+              title: cleanTitle,
+              options: cleanTitle.split(' / ')
+            });
+          }
+          if (selMatches) {
+            sData.catalog = selVariants;
+            return selVariants;
+          }
+        }
+      }
+
+      return [];
+    }
+
+    // 3. Extract Currently Selected Option Values from the Storefront DOM
+    function getSelectedOptionValues(root) {
+      var scope = root || document;
+      var selected = [];
+
+      // A. Dawn & OS 2.0 <variant-radios>, <variant-selects>
+      var customPickers = scope.querySelectorAll('variant-radios, variant-selects');
+      if (customPickers.length > 0) {
+        customPickers.forEach(function (picker) {
+          if (Array.isArray(picker.options) && picker.options.length > 0) {
+            picker.options.forEach(function (opt) {
+              if (opt !== undefined && opt !== null && String(opt).trim()) {
+                selected.push(String(opt).trim());
+              }
+            });
+          }
+          picker.querySelectorAll('fieldset').forEach(function (fieldset) {
+            var checked = fieldset.querySelector('input[type="radio"]:checked');
+            if (checked && checked.value) {
+              selected.push(checked.value.trim());
+            }
+          });
+          picker.querySelectorAll('select').forEach(function (s) {
+            if (s.name !== 'id' && s.value) {
+              selected.push(s.value.trim());
+            }
+          });
+        });
+        if (selected.length > 0) return selected;
+      }
+
+      // B. Checked radio inputs across forms and variant containers
+      var radioGroups = {};
+      var checkedRadios = scope.querySelectorAll(
+        'form[action*="/cart/add"] input[type="radio"]:checked, product-form input[type="radio"]:checked, .product-form input[type="radio"]:checked, [data-variant-picker] input[type="radio"]:checked, fieldset input[type="radio"]:checked, .product-form__input input[type="radio"]:checked'
+      );
+      checkedRadios.forEach(function (r) {
+        var name = (r.name || '').toLowerCase();
+        if (name === 'id') return; // Handled separately as direct variant ID
+        if (!radioGroups[r.name] && r.value) {
+          radioGroups[r.name] = r.value.trim();
+        }
+      });
+      var radioValues = Object.keys(radioGroups).map(function (k) { return radioGroups[k]; });
+      if (radioValues.length > 0) {
+        return radioValues;
+      }
+
+      // C. Option dropdowns (excluding name="id")
+      var optionSelects = scope.querySelectorAll(
+        'select.single-option-selector, select[name^="options["], select[name^="option-"], select[data-option-index], .product-form select:not([name="id"])'
+      );
+      if (optionSelects.length > 0) {
+        optionSelects.forEach(function (sel) {
+          if (sel.name !== 'id' && sel.value) {
+            selected.push(sel.value.trim());
+          }
+        });
+        if (selected.length > 0) return selected;
+      }
+
+      // D. Swatches / Custom Buttons / Elements with active/checked state
+      var swatchContainers = scope.querySelectorAll(
+        '[data-option-index], [data-swatch-group], .product-form__input, .swatch, .variant-input'
+      );
+      swatchContainers.forEach(function (sc) {
+        var active = sc.querySelector(
+          '[aria-checked="true"], [aria-selected="true"], .is-active, .active, .selected, [data-selected="true"]'
+        );
+        if (active) {
+          var val = active.getAttribute('data-value') ||
+                    active.getAttribute('data-option-value') ||
+                    active.getAttribute('value') ||
+                    active.textContent;
+          if (val && val.trim()) {
+            selected.push(val.trim());
+          }
+        }
+      });
+
+      return selected;
+    }
+
+    // 4. Match Selected Option Values Against Variant Catalog
+    function matchVariantByOptions(variants, selectedOptions) {
+      if (!variants || !variants.length || !selectedOptions || !selectedOptions.length) {
+        return null;
+      }
+
+      var normSelected = selectedOptions.map(norm).filter(Boolean);
+      if (!normSelected.length) return null;
+
+      // Match 1: Exact positional options array match
+      for (var i = 0; i < variants.length; i++) {
+        var v1 = variants[i];
+        if (!v1) continue;
+        var v1Opts = (v1.options || []).map(norm);
+        if (v1Opts.length === normSelected.length) {
+          var matchExact = true;
+          for (var idx = 0; idx < v1Opts.length; idx++) {
+            if (v1Opts[idx] !== normSelected[idx]) {
+              matchExact = false;
+              break;
+            }
+          }
+          if (matchExact) return String(v1.id);
+        }
+      }
+
+      // Match 2: Order-independent match (all selected options are in variant options)
+      for (var j = 0; j < variants.length; j++) {
+        var v2 = variants[j];
+        if (!v2) continue;
+        var v2Opts = (v2.options || []).map(norm);
+        if (v2Opts.length === normSelected.length) {
+          var allMatch = normSelected.every(function (opt) {
+            return v2Opts.indexOf(opt) !== -1;
+          });
+          if (allMatch) return String(v2.id);
+        }
+      }
+
+      // Match 3: Single selected option equals variant title
+      if (normSelected.length === 1) {
+        for (var k = 0; k < variants.length; k++) {
+          var v3 = variants[k];
+          if (v3 && norm(v3.title) === normSelected[0]) {
+            return String(v3.id);
+          }
+        }
+      }
+
+      // Match 4: Joined options ("Red / Large") equals variant title
+      var joined = normSelected.join(' / ');
+      for (var m = 0; m < variants.length; m++) {
+        var v4 = variants[m];
+        if (v4 && norm(v4.title) === joined) {
+          return String(v4.id);
+        }
+      }
+
+      // Match 5: Alphanumeric fuzzy match (handles $10 vs 10, currency formatting)
+      var normAlphaSelected = selectedOptions.map(normAlphaNum).filter(Boolean);
+      if (normAlphaSelected.length === 1) {
+        for (var f = 0; f < variants.length; f++) {
+          var vf = variants[f];
+          if (vf && normAlphaNum(vf.title) === normAlphaSelected[0]) {
+            return String(vf.id);
+          }
+        }
+      }
+
+      // Match 6: Substring matching if variant title contains all selected options
+      for (var p = 0; p < variants.length; p++) {
+        var v5 = variants[p];
+        if (!v5) continue;
+        var tNorm = norm(v5.title);
+        var subMatch = normSelected.every(function (opt) {
+          return tNorm.indexOf(opt) !== -1;
+        });
+        if (subMatch) return String(v5.id);
+      }
+
+      return null;
+    }
+
+    // 5. Multi-Source Resolver: Determine the Active Variant ID for a Spec Table
+    function resolveVariantIdForSection(section, preferredVariantId) {
+      var sData = getSectionData(section);
+      var validIds = sData.validIds;
+      if (!validIds || validIds.size === 0) return null;
+
+      // Source 0: Preferred variant ID (e.g. passed from custom event detail)
+      if (preferredVariantId && validIds.has(String(preferredVariantId))) {
+        return String(preferredVariantId);
+      }
+
+      // Source 1: Dawn / OS 2.0 component `currentVariant` property
+      var pickers = document.querySelectorAll('variant-radios, variant-selects');
+      for (var i = 0; i < pickers.length; i++) {
+        var cv = pickers[i].currentVariant;
+        if (cv && cv.id && validIds.has(String(cv.id))) {
+          return String(cv.id);
+        }
+      }
+
+      // Source 2: Resolve from Selected Options combination against Variant Catalog
+      // (Primary mechanism: matches user choice immediately without waiting for AJAX)
+      var catalog = findProductVariantsCatalog(section, validIds);
+      if (catalog && catalog.length > 0) {
+        var selectedOpts = getSelectedOptionValues();
+        if (selectedOpts && selectedOpts.length > 0) {
+          var matchedFromOptions = matchVariantByOptions(catalog, selectedOpts);
+          if (matchedFromOptions && validIds.has(String(matchedFromOptions))) {
+            return String(matchedFromOptions);
+          }
+        }
+      }
+
+      // Source 3: Checked radio inputs with name="id"
+      var checkedIdRadios = document.querySelectorAll('input[type="radio"][name="id"]:checked');
+      for (var rIdx = 0; rIdx < checkedIdRadios.length; rIdx++) {
+        var rVal = String(checkedIdRadios[rIdx].value || '');
+        if (validIds.has(rVal)) {
+          return rVal;
+        }
+      }
+
+      // Source 4: Native select[name="id"]
+      var idSelects = document.querySelectorAll('select[name="id"]');
+      for (var sIdx = 0; sIdx < idSelects.length; sIdx++) {
+        var sVal = String(idSelects[sIdx].value || '');
+        if (validIds.has(sVal)) {
+          return sVal;
+        }
+      }
+
+      // Source 5: Hidden or text input[name="id"] within product forms
+      var idInputs = document.querySelectorAll(
+        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"], [name="id"][form]'
+      );
+      for (var inpIdx = 0; inpIdx < idInputs.length; inpIdx++) {
+        var inputEl = idInputs[inpIdx];
+        if (inputEl.type === 'radio' || inputEl.type === 'checkbox') {
+          if (!inputEl.checked) continue; // Unchecked radios MUST NOT be used!
+        }
+        var inVal = String(inputEl.value || '');
+        if (inVal && validIds.has(inVal)) {
+          return inVal;
+        }
+      }
+
+      // Source 6: URL query parameter ?variant=...
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var urlVar = params.get('variant');
+        if (urlVar && validIds.has(String(urlVar))) {
+          return String(urlVar);
+        }
+      } catch (e) {}
+
+      return null;
+    }
+
+    // 6. Apply Variant Values to the Specification Table
+    function applyVariantToSection(section, variantId) {
+      if (!section || !variantId) return false;
+      var sVariantId = String(variantId);
+
+      // Avoid redundant work if already applied
+      if (section._ipcAppliedVariantId === sVariantId) {
+        return false;
+      }
+
+      var items = section.querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]');
+      var changed = false;
+
+      items.forEach(function (item) {
+        var map = item._ipcVariantMap;
+        if (!map) {
+          getSectionData(section);
+          map = item._ipcVariantMap;
+        }
+        if (map && Object.prototype.hasOwnProperty.call(map, sVariantId)) {
+          var valueEl = item.querySelector('.iconic-product-specification__value');
+          if (valueEl) {
+            var newHtml = map[sVariantId];
+            if (valueEl.innerHTML !== newHtml) {
+              valueEl.innerHTML = newHtml;
+              changed = true;
+            }
+          }
+        }
+      });
+
+      section._ipcAppliedVariantId = sVariantId;
+
+      if (changed) {
+        if (typeof section._iconicSpecRefresh === 'function') {
+          section._iconicSpecRefresh();
+        }
+        ipcBindFixedTooltips(section);
+      }
+
+      return changed;
+    }
+
+    // 7. Update All Spec Tables on the Page
+    function updateAllSections(preferredVariantId) {
+      var sections = document.querySelectorAll('[data-iconic-product-specification]');
+      sections.forEach(function (section) {
+        var vId = resolveVariantIdForSection(section, preferredVariantId);
+        if (vId) {
+          applyVariantToSection(section, vId);
+        }
+      });
+    }
+
+    // Schedule debounced checks (immediate + delayed for asynchronous theme DOM renders)
+    function scheduleCheck(preferredVariantId) {
+      updateAllSections(preferredVariantId);
+      setTimeout(function () { updateAllSections(preferredVariantId); }, 50);
+      setTimeout(function () { updateAllSections(preferredVariantId); }, 180);
+      setTimeout(function () { updateAllSections(preferredVariantId); }, 400);
+    }
+
+    // 8. Observe and Hook DOM Inputs & Elements
+    function hookVariantElements() {
+      var inputs = document.querySelectorAll(
+        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"], select[name="id"]'
+      );
+      inputs.forEach(function (input) {
+        if (input._ipcHooked) return;
+        input._ipcHooked = true;
+
+        try {
+          var descriptor = Object.getOwnPropertyDescriptor(input, 'value');
+          if (!descriptor || !descriptor.set) {
+            var proto = Object.getPrototypeOf(input);
+            descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+          }
+          if (!descriptor || !descriptor.set) {
+            var tag = (input.tagName || '').toUpperCase();
+            if (tag === 'SELECT') {
+              descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+            } else {
+              descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+            }
+          }
+          if (descriptor && descriptor.set) {
+            var origSet = descriptor.set;
+            var origGet = descriptor.get;
+            Object.defineProperty(input, 'value', {
+              get: function () { return origGet.call(this); },
+              set: function (val) {
+                var prev = origGet.call(this);
+                origSet.call(this, val);
+                if (String(val) !== String(prev)) {
+                  scheduleCheck(val);
+                }
+              },
+              configurable: true
+            });
+          }
+        } catch (e) {}
+      });
+    }
+
+    // Intercept History API (pushState / replaceState)
+    function interceptHistory() {
+      if (window._ipcHistoryIntercepted) return;
+      window._ipcHistoryIntercepted = true;
+
+      var origPush = history.pushState;
+      var origReplace = history.replaceState;
+
+      history.pushState = function () {
+        var res = origPush.apply(this, arguments);
+        scheduleCheck();
+        return res;
+      };
+      history.replaceState = function () {
+        var res = origReplace.apply(this, arguments);
+        scheduleCheck();
+        return res;
+      };
+    }
+
+    // 9. Initialize System
+    function init() {
+      if (_initialized) {
+        scheduleCheck();
+        hookVariantElements();
+        return;
+      }
+      _initialized = true;
+
+      interceptHistory();
+      hookVariantElements();
+
+      // Delegated event listeners on document
+      document.addEventListener('change', function () {
+        scheduleCheck();
+      }, true);
+
+      document.addEventListener('input', function () {
+        scheduleCheck();
+      }, true);
+
+      document.addEventListener('click', function (e) {
+        var target = e.target;
+        if (target && target.closest) {
+          var isPickerElement = target.closest(
+            'variant-radios, variant-selects, [data-variant-id], .product-form__input, [name="id"], label, [role="radio"], [role="option"], [data-value], [data-option-value], .swatch, .variant-input'
+          );
+          if (isPickerElement) {
+            scheduleCheck();
+          }
+        }
+      }, true);
+
+      // Theme-specific and standard variant events
+      var variantEvents = [
+        'variant:change',
+        'variant:changed',
+        'variantChange',
+        'shopify:variant:change',
+        'theme:variant:change'
+      ];
+      variantEvents.forEach(function (evtName) {
+        document.addEventListener(evtName, function (e) {
+          var detail = e && e.detail;
+          var vId = null;
+          if (detail) {
+            if (typeof detail === 'object') {
+              vId = (detail.variant && detail.variant.id) || detail.variantId || detail.id;
+            } else if (typeof detail === 'number' || typeof detail === 'string') {
+              vId = detail;
+            }
+          }
+          scheduleCheck(vId);
+        });
+      });
+
+      window.addEventListener('popstate', function () {
+        scheduleCheck();
+      });
+
+      document.addEventListener('shopify:section:load', function () {
+        setTimeout(function () {
+          hookVariantElements();
+          scheduleCheck();
+        }, 150);
+      });
+
+      document.addEventListener('shopify:section:rerender', function () {
+        setTimeout(function () {
+          hookVariantElements();
+          scheduleCheck();
+        }, 150);
+      });
+
+      // MutationObserver to watch for dynamically replaced forms / variant pickers
+      if (typeof MutationObserver !== 'undefined' && !_mutationObserver) {
+        _mutationObserver = new MutationObserver(function (mutations) {
+          var shouldRecheck = false;
+          for (var i = 0; i < mutations.length; i++) {
+            var m = mutations[i];
+            if (m.type === 'attributes') {
+              if (m.attributeName === 'checked' || m.attributeName === 'selected' || m.attributeName === 'value' || m.attributeName === 'data-selected') {
+                shouldRecheck = true;
+                break;
+              }
+            } else if (m.type === 'childList' && m.addedNodes.length > 0) {
+              for (var n = 0; n < m.addedNodes.length; n++) {
+                var node = m.addedNodes[n];
+                if (node.nodeType === 1) {
+                  if (
+                    (node.matches && node.matches('form[action*="/cart/add"], variant-radios, variant-selects, product-form, .product-form')) ||
+                    (node.querySelector && node.querySelector('form[action*="/cart/add"], variant-radios, variant-selects, product-form, [name="id"]'))
+                  ) {
+                    hookVariantElements();
+                    shouldRecheck = true;
+                    break;
+                  }
+                }
+              }
+              if (shouldRecheck) break;
+            }
+          }
+          if (shouldRecheck) {
+            scheduleCheck();
+          }
+        });
+
+        _mutationObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['checked', 'selected', 'value', 'data-selected', 'aria-checked']
+        });
+      }
+
+      // Initial check on load
+      scheduleCheck();
+
+      // Lightweight non-aggressive poll fallback (500ms)
+      if (!_activePollTimer) {
+        _activePollTimer = setInterval(function () {
+          updateAllSections();
+        }, 500);
+      }
+    }
+
+    return {
+      init: init,
+      scheduleCheck: scheduleCheck,
+      updateAllSections: updateAllSections,
+      resolveVariantIdForSection: resolveVariantIdForSection,
+      applyVariantToSection: applyVariantToSection,
+      getSectionData: getSectionData,
+      hookVariantElements: hookVariantElements
+    };
+  })();
+
+  // Backward-compatible wrappers for existing codebase
+  function ipcApplyVariantToSpecTables(candidateIds) {
+    if (candidateIds && candidateIds.length) {
+      IpcVariantManager.updateAllSections(candidateIds[0]);
+    } else {
+      IpcVariantManager.updateAllSections();
+    }
+  }
+
   function ipcGetVariantIdCandidates() {
     var ids = [];
-    document
-      .querySelectorAll(
-        'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"], [name="id"][form]'
-      )
-      .forEach(function (el) {
-        if (el && el.value) ids.push(String(el.value));
-      });
-    try {
-      var params = new URLSearchParams(window.location.search);
-      var fromUrl = params.get('variant');
-      if (fromUrl) ids.push(fromUrl);
-    } catch (e) {}
+    var sections = document.querySelectorAll('[data-iconic-product-specification]');
+    sections.forEach(function (sec) {
+      var vId = IpcVariantManager.resolveVariantIdForSection(sec);
+      if (vId) ids.push(vId);
+    });
     return ids;
   }
 
-  function ipcApplyVariantToSpecTables(candidateIds) {
-    if (!candidateIds || !candidateIds.length) return;
-    document
-      .querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]')
-      .forEach(function (item) {
-        var map = item._ipcVariantMap;
-        if (!map) {
-          var raw = item.getAttribute('data-ipc-variant-values');
-          if (!raw) return;
-          try {
-            var list = JSON.parse(raw);
-          } catch (e) {
-            return;
-          }
-          map = {};
-          list.forEach(function (entry) {
-            if (entry && entry.id !== undefined) {
-              map[String(entry.id)] = entry.html;
-            }
-          });
-          item._ipcVariantMap = map;
-        }
-        // Each row only reacts to a candidate id that belongs to its own
-        // product's variant map, so unrelated forms/products on the same
-        // page (related products, upsells, quick-add) can't cross-apply.
-        var matchedId = null;
-        for (var i = 0; i < candidateIds.length; i += 1) {
-          if (Object.prototype.hasOwnProperty.call(map, candidateIds[i])) {
-            matchedId = candidateIds[i];
-            break;
-          }
-        }
-        if (matchedId === null) return;
-        var valueEl = item.querySelector('.iconic-product-specification__value');
-        if (valueEl) valueEl.innerHTML = map[matchedId];
-      });
-
-    document.querySelectorAll('[data-iconic-product-specification]').forEach(function (section) {
-      if (typeof section._iconicSpecRefresh === 'function') {
-        section._iconicSpecRefresh();
-      }
-    });
-    ipcBindFixedTooltips(document);
-  }
-
-  var ipcLastVariantCandidatesKey = '';
   function ipcCheckVariantChange() {
-    var candidateIds = ipcGetVariantIdCandidates();
-    var key = candidateIds.join('|');
-    if (key && key !== ipcLastVariantCandidatesKey) {
-      ipcLastVariantCandidatesKey = key;
-      ipcApplyVariantToSpecTables(candidateIds);
-    }
+    IpcVariantManager.updateAllSections();
   }
 
   function ipcScheduleVariantCheck() {
-    setTimeout(ipcCheckVariantChange, 0);
-    setTimeout(ipcCheckVariantChange, 150);
-    setTimeout(ipcCheckVariantChange, 400);
+    IpcVariantManager.scheduleCheck();
   }
 
-  // ── NEW: MutationObserver + property descriptor on [name="id"] inputs ──
-  // MutationObserver catches setAttribute('value', ...) changes.
-  // The property descriptor override catches programmatic .value = X assignments
-  // which is how most themes (Dawn, Refresh, etc.) update the hidden input.
-  var ipcVariantInputObserver = null;
   function ipcObserveVariantInputs() {
-    var inputs = document.querySelectorAll(
-      'form[action*="/cart/add"] [name="id"], form[action^="/cart/add"] [name="id"], product-form [name="id"], .product-form [name="id"]'
-    );
-    if (!inputs.length) return;
-
-    if (!ipcVariantInputObserver) {
-      ipcVariantInputObserver = new MutationObserver(function () {
-        ipcScheduleVariantCheck();
-      });
-    }
-
-    inputs.forEach(function (input) {
-      if (input._ipcVariantObserved) return;
-      input._ipcVariantObserved = true;
-
-      // Watch for attribute-based value changes (setAttribute)
-      ipcVariantInputObserver.observe(input, {
-        attributes: true,
-        attributeFilter: ['value']
-      });
-
-      // Override the .value property setter to catch programmatic assignments
-      // This is key: most themes do input.value = newVariantId, which does NOT
-      // fire change events or trigger MutationObserver.
-      try {
-        // First check if the element already has its own descriptor (another
-        // app or script may have overridden it). If so, chain to theirs.
-        var descriptor = Object.getOwnPropertyDescriptor(input, 'value');
-        if (!descriptor || !descriptor.set) {
-          // No own descriptor — get from the prototype chain
-          var proto = Object.getPrototypeOf(input);
-          descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
-        }
-        if (!descriptor || !descriptor.set) {
-          // Fallback: handle both <input> and <select> elements
-          var tag = (input.tagName || '').toUpperCase();
-          if (tag === 'SELECT') {
-            descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
-          } else {
-            descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-          }
-        }
-        if (descriptor && descriptor.set) {
-          var originalSet = descriptor.set;
-          var originalGet = descriptor.get;
-          Object.defineProperty(input, 'value', {
-            get: function () { return originalGet.call(this); },
-            set: function (val) {
-              var prev = originalGet.call(this);
-              originalSet.call(this, val);
-              if (String(val) !== String(prev)) {
-                ipcScheduleVariantCheck();
-              }
-            },
-            configurable: true
-          });
-        }
-      } catch (e) {
-        // Fallback: property descriptor override not supported in this context
-      }
-    });
+    IpcVariantManager.hookVariantElements();
   }
 
-  // ── NEW: History API interception ──────────────────────────────────
-  // Many themes update ?variant=ID via history.replaceState which does NOT
-  // fire popstate. This intercept catches those URL updates.
   function ipcInterceptHistoryApi() {
-    if (window._ipcHistoryIntercepted) return;
-    window._ipcHistoryIntercepted = true;
-
-    var origPush = history.pushState;
-    var origReplace = history.replaceState;
-
-    history.pushState = function () {
-      var result = origPush.apply(this, arguments);
-      ipcScheduleVariantCheck();
-      return result;
-    };
-    history.replaceState = function () {
-      var result = origReplace.apply(this, arguments);
-      ipcScheduleVariantCheck();
-      return result;
-    };
+    // Intercept handled inside IpcVariantManager
   }
-
-  document.addEventListener(
-    'change',
-    function (e) {
-      var target = e.target;
-      if (target && target.closest && target.closest('form[action*="/cart/add"]')) {
-        ipcScheduleVariantCheck();
-      }
-    },
-    true
-  );
-  document.addEventListener(
-    'click',
-    function (e) {
-      var target = e.target;
-      if (
-        target &&
-        target.closest &&
-        target.closest(
-          'variant-radios, variant-selects, [data-variant-id], .product-form__input, [name="id"]'
-        )
-      ) {
-        ipcScheduleVariantCheck();
-      }
-    },
-    true
-  );
-  document.addEventListener('variant:change', ipcScheduleVariantCheck);
-  document.addEventListener('variant:changed', ipcScheduleVariantCheck);
-  document.addEventListener('variantChange', ipcScheduleVariantCheck);
-  window.addEventListener('popstate', ipcScheduleVariantCheck);
-
-  // Listen for 'input' event too (not just 'change') — catches select/radio
-  // value changes in some themes that fire input but not change
-  document.addEventListener(
-    'input',
-    function (e) {
-      var target = e.target;
-      if (
-        target &&
-        target.closest &&
-        target.closest(
-          'form[action*="/cart/add"], product-form, .product-form, variant-radios, variant-selects'
-        )
-      ) {
-        ipcScheduleVariantCheck();
-      }
-    },
-    true
-  );
-
-  // Theme-agnostic safety net: some variant pickers are custom buttons/components
-  // that don't fire 'change', a recognizable click target, or a 'popstate' event
-  // (e.g. they update the URL via history.pushState/replaceState, which fires
-  // neither). Polling guarantees the spec table still catches the swap.
-  setInterval(ipcCheckVariantChange, 300);
 
   function ipcInitVariantBaseline() {
-    ipcLastVariantCandidatesKey = ipcGetVariantIdCandidates().join('|');
+    IpcVariantManager.scheduleCheck();
   }
 
+  // Storefront bootstrap
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       initIconicStorefrontBlocks();
-      ipcInitVariantBaseline();
-      ipcObserveVariantInputs();
-      ipcInterceptHistoryApi();
+      IpcVariantManager.init();
     });
   } else {
     initIconicStorefrontBlocks();
-    ipcInitVariantBaseline();
-    ipcObserveVariantInputs();
-    ipcInterceptHistoryApi();
+    IpcVariantManager.init();
   }
 
-  document.addEventListener("shopify:section:load", initIconicStorefrontBlocks);
-  document.addEventListener("shopify:section:select", initIconicStorefrontBlocks);
-  document.addEventListener("shopify:section:load", ipcScheduleVariantCheck);
-  document.addEventListener("shopify:section:load", function () {
-    setTimeout(ipcObserveVariantInputs, 200);
-  });
-  document.addEventListener("shopify:section:rerender", function () {
-    setTimeout(function () {
-      ipcScheduleVariantCheck();
-      ipcObserveVariantInputs();
-    }, 200);
+  window.addEventListener('load', function () {
+    IpcVariantManager.scheduleCheck();
   });
 
-  const bodyObserver = new MutationObserver(function (mutations) {
-    let shouldCheck = false;
-    let hasNewForms = false;
+  document.addEventListener("shopify:section:load", function () {
+    initIconicStorefrontBlocks();
+    IpcVariantManager.init();
+  });
+  document.addEventListener("shopify:section:select", initIconicStorefrontBlocks);
+
+  // Body observer for dynamic block injections
+  var bodyObserver = new MutationObserver(function (mutations) {
+    var shouldCheck = false;
     mutations.forEach(function (mutation) {
       if (mutation.addedNodes.length > 0) {
         mutation.addedNodes.forEach(function (node) {
-          if (node.nodeType === 1) {
-            if (
-              node.hasAttribute && node.hasAttribute('data-iconic-product-comparison') ||
-              node.querySelector && node.querySelector('[data-iconic-product-comparison]') ||
-              node.hasAttribute && node.hasAttribute('data-iconic-product-specification') ||
-              node.querySelector && node.querySelector('[data-iconic-product-specification]')
-            ) {
-              shouldCheck = true;
-            }
-            // Also check if new product forms or variant inputs were added
-            if (
-              node.matches && node.matches('form[action*="/cart/add"], product-form, .product-form') ||
-              node.querySelector && node.querySelector('form[action*="/cart/add"], product-form, .product-form, [name="id"]')
-            ) {
-              hasNewForms = true;
-            }
+          if (node.nodeType === 1 && (
+            (node.hasAttribute && node.hasAttribute('data-iconic-product-comparison')) ||
+            (node.querySelector && node.querySelector('[data-iconic-product-comparison]')) ||
+            (node.hasAttribute && node.hasAttribute('data-iconic-product-specification')) ||
+            (node.querySelector && node.querySelector('[data-iconic-product-specification]'))
+          )) {
+            shouldCheck = true;
           }
         });
       }
     });
     if (shouldCheck) {
-      setTimeout(initIconicStorefrontBlocks, 100);
-    }
-    if (shouldCheck || hasNewForms) {
-      setTimeout(ipcObserveVariantInputs, 200);
+      setTimeout(function () {
+        initIconicStorefrontBlocks();
+        IpcVariantManager.scheduleCheck();
+      }, 100);
     }
   });
 
