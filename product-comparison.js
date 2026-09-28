@@ -389,6 +389,7 @@ function scrollToAddToCart() {
     initScrollShadows(sectionSelector);
     initComparisonFeatures(sectionSelector, highlightDifferencesDefault, hideEmptyRows);
     initAppSpecifications(sectionSelector);
+    initComparisonVariantPickers(sectionSelector);
   }
 
   function initScrollShadows(sectionSelector) {
@@ -915,6 +916,10 @@ function scrollToAddToCart() {
       var section = document.querySelector(sectionSelector);
       if (!section) return;
 
+      // All-empty rows stay hidden if EITHER the merchant's "Hide empty rows"
+      // setting is on, OR the shopper's "Hide same value" checkbox is checked.
+      var shouldKeepEmptyHidden = hideEmptyRows || getHighlightState();
+
       var tables = section.querySelectorAll('.iconic-compare-products-table');
       tables.forEach(function (table) {
         var rows = table.querySelectorAll('tbody tr');
@@ -927,14 +932,12 @@ function scrollToAddToCart() {
           if (cells.length === 0) return;
 
           var allEmpty = cells.every(isComparisonValueCellVisuallyEmpty);
+          if (!allEmpty) return;
 
-          if (hideEmptyRows && allEmpty) {
+          if (shouldKeepEmptyHidden) {
             row.classList.add('iconic-row-all-empty');
-          } else if (!hideEmptyRows && allEmpty) {
-            // Only clear the flag if the highlight checkbox didn't also set it
-            if (!row.classList.contains('iconic-row-same')) {
-              row.classList.remove('iconic-row-all-empty');
-            }
+          } else {
+            row.classList.remove('iconic-row-all-empty');
           }
         });
       });
@@ -1300,6 +1303,151 @@ function scrollToAddToCart() {
     });
 
     table.dataset.ipcSpecsRendered = 'true';
+  }
+
+  // ── Comparison table: per-column variant pickers ─────────────────────────
+  // Unlike the storefront-wide variant-change detection used for the single
+  // product spec table (which has to guess at an arbitrary theme's variant
+  // picker), these <select> elements are rendered and fully owned by this
+  // app, so a plain 'change' listener is all that's needed — no polling or
+  // history-API patching required.
+  function initComparisonVariantPickers(sectionSelector) {
+    var section = document.querySelector(sectionSelector);
+    if (!section) return;
+
+    function norm(str) {
+      return String(str || '').trim().toLowerCase();
+    }
+
+    function parseCatalog(raw) {
+      if (!raw) return [];
+      try {
+        var list = JSON.parse(raw);
+        return Array.isArray(list) ? list : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function matchVariant(catalog, selectedOptions) {
+      var normSelected = selectedOptions.map(norm);
+      for (var i = 0; i < catalog.length; i += 1) {
+        var v = catalog[i];
+        var vOpts = (v.options || []).map(norm);
+        if (vOpts.length !== normSelected.length) continue;
+        var isMatch = true;
+        for (var j = 0; j < vOpts.length; j += 1) {
+          if (vOpts[j] !== normSelected[j]) {
+            isMatch = false;
+            break;
+          }
+        }
+        if (isMatch) return v;
+      }
+      return null;
+    }
+
+    function applyVariantValues(colIndex, variantId) {
+      var sVariantId = String(variantId);
+      section
+        .querySelectorAll(
+          '[data-ipc-per-variant="1"][data-ipc-cmp-col="' + colIndex + '"][data-ipc-variant-values]'
+        )
+        .forEach(function (td) {
+          var map = td._ipcCmpVariantMap;
+          if (!map) {
+            var raw = td.getAttribute('data-ipc-variant-values');
+            if (!raw) return;
+            try {
+              var list = JSON.parse(raw);
+            } catch (e) {
+              return;
+            }
+            map = {};
+            list.forEach(function (entry) {
+              if (entry && entry.id !== undefined) map[String(entry.id)] = entry.html;
+            });
+            td._ipcCmpVariantMap = map;
+          }
+          if (!Object.prototype.hasOwnProperty.call(map, sVariantId)) return;
+          td.innerHTML = map[sVariantId];
+        });
+    }
+
+    function applySummary(colIndex, productTitle, matchedVariant) {
+      var cell = section.querySelector('[data-ipc-cmp-summary][data-ipc-cmp-col="' + colIndex + '"]');
+      if (!cell) return;
+      var opts =
+        matchedVariant && Array.isArray(matchedVariant.options) ? matchedVariant.options.join(', ') : '';
+      cell.textContent = opts ? productTitle + ' ( ' + opts + ' )' : productTitle;
+    }
+
+    function updateProductLinks(th, variantId) {
+      if (!th) return;
+      th.querySelectorAll('a[href]').forEach(function (a) {
+        var href = a.getAttribute('href') || '';
+        if (!href || href.indexOf('javascript:') === 0 || href === '#') return;
+        try {
+          var url = new URL(href, window.location.href);
+          url.searchParams.set('variant', variantId);
+          a.setAttribute('href', url.toString());
+        } catch (e) {}
+      });
+    }
+
+    function refreshHighlight() {
+      var cb = section.querySelector('.iconic-highlight-differences-checkbox');
+      if (cb) cb.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function getCatalog(picker) {
+      if (!picker._ipcCmpCatalog) {
+        picker._ipcCmpCatalog = parseCatalog(picker.getAttribute('data-ipc-cmp-variants'));
+      }
+      return picker._ipcCmpCatalog;
+    }
+
+    function getOrderedSelects(picker) {
+      return Array.prototype.slice
+        .call(picker.querySelectorAll('.iconic-cmp-variant-option'))
+        .sort(function (a, b) {
+          return (
+            parseInt(a.getAttribute('data-ipc-cmp-option-index'), 10) -
+            parseInt(b.getAttribute('data-ipc-cmp-option-index'), 10)
+          );
+        });
+    }
+
+    function handlePickerChange(picker) {
+      var colIndex = picker.getAttribute('data-ipc-cmp-col');
+      var catalog = getCatalog(picker);
+      var selects = getOrderedSelects(picker);
+      var selectedOptions = selects.map(function (s) {
+        return s.value;
+      });
+      var matched = matchVariant(catalog, selectedOptions);
+      if (!matched) return;
+
+      applyVariantValues(colIndex, matched.id);
+
+      var th = picker.closest('th');
+      var titleEl = th ? th.querySelector('.iconic-product-title') : null;
+      var productTitle = titleEl ? titleEl.textContent.trim() : '';
+      applySummary(colIndex, productTitle, matched);
+      updateProductLinks(th, matched.id);
+      refreshHighlight();
+    }
+
+    section.querySelectorAll('.iconic-cmp-variant-picker').forEach(function (picker) {
+      if (picker.getAttribute('data-ipc-cmp-bound') === 'true') return;
+      picker.setAttribute('data-ipc-cmp-bound', 'true');
+
+      picker.querySelectorAll('.iconic-cmp-variant-option').forEach(function (select) {
+        select.addEventListener('change', function () {
+          handlePickerChange(picker);
+        });
+      });
+    });
   }
 
   function initProductSpecification(section) {
@@ -1885,6 +2033,54 @@ function scrollToAddToCart() {
       return null;
     }
 
+    // Briefly flash a value cell after a per-variant swap so shoppers notice
+    // which rows changed. Inline !important beats zebra !important backgrounds
+    // (CSS @keyframes cannot override stylesheet !important).
+    var IPC_FLASH_FADE_IN_MS = 1000;
+    var IPC_FLASH_HOLD_UNTIL_MS = 5000;
+    var IPC_FLASH_FADE_OUT_MS = 2000;
+    var IPC_SPEC_FLASH_DEFAULT = '#D6EAF8';
+
+    function flashVariantValueCell(cell) {
+      if (!cell) return;
+      if (cell._ipcFlashTimers) {
+        cell._ipcFlashTimers.forEach(function (id) {
+          clearTimeout(id);
+        });
+      }
+      var flashColor = getComputedStyle(cell)
+        .getPropertyValue('--pc-variant-value-flash-color')
+        .trim();
+      if (!flashColor) flashColor = IPC_SPEC_FLASH_DEFAULT;
+
+      cell._ipcFlashTimers = [];
+      cell.style.setProperty(
+        'transition',
+        'background-color ' + IPC_FLASH_FADE_IN_MS / 1000 + 's ease-in',
+        'important'
+      );
+      cell.style.setProperty('background-color', flashColor, 'important');
+
+      cell._ipcFlashTimers.push(
+        setTimeout(function () {
+          cell.style.setProperty(
+            'transition',
+            'background-color ' + IPC_FLASH_FADE_OUT_MS / 1000 + 's ease-out',
+            'important'
+          );
+          cell.style.setProperty('background-color', 'transparent', 'important');
+        }, IPC_FLASH_HOLD_UNTIL_MS)
+      );
+
+      cell._ipcFlashTimers.push(
+        setTimeout(function () {
+          cell.style.removeProperty('transition');
+          cell.style.removeProperty('background-color');
+          cell._ipcFlashTimers = null;
+        }, IPC_FLASH_HOLD_UNTIL_MS + IPC_FLASH_FADE_OUT_MS + 100)
+      );
+    }
+
     // 6. Apply Variant Values to the Specification Table
     function applyVariantToSection(section, variantId) {
       if (!section || !variantId) return false;
@@ -1897,6 +2093,7 @@ function scrollToAddToCart() {
 
       var items = section.querySelectorAll('[data-ipc-per-variant="1"][data-ipc-variant-values]');
       var changed = false;
+      var isInitialApply = !section._ipcAppliedVariantId;
 
       items.forEach(function (item) {
         var map = item._ipcVariantMap;
@@ -1911,6 +2108,9 @@ function scrollToAddToCart() {
             if (valueEl.innerHTML !== newHtml) {
               valueEl.innerHTML = newHtml;
               changed = true;
+              if (!isInitialApply) {
+                flashVariantValueCell(valueEl);
+              }
             }
           }
         }
