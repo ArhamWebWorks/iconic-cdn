@@ -564,6 +564,32 @@ function scrollToAddToCart() {
       if (checkIcon) return 'check';
       if (xIcon) return 'uncheck';
 
+      const boolSvg = cell.querySelector('.iconic-ipc-bool-svg-wrap');
+      if (boolSvg) {
+        return boolSvg.classList.contains('iconic-ipc-bool-svg-wrap--true') ? 'bool-true' : 'bool-false';
+      }
+
+      const colorSwatch = cell.querySelector('.iconic-color-swatch');
+      if (colorSwatch) {
+        const swatchValue =
+          colorSwatch.getAttribute('title') ||
+          colorSwatch.style.background ||
+          colorSwatch.getAttribute('style') ||
+          '';
+        return 'color-' + normalizeText(swatchValue);
+      }
+
+      const scaleBar = cell.querySelector('.iconic-scale-bar-row');
+      if (scaleBar) {
+        const valueText = scaleBar.querySelector('.iconic-scale-bar-value-text');
+        if (valueText && valueText.textContent.trim()) {
+          return normalizeText(valueText.textContent);
+        }
+        const fill = scaleBar.querySelector('.iconic-scale-bar-fill');
+        const fillWidth = fill ? fill.style.width : '';
+        return 'scale-' + normalizeText(fillWidth);
+      }
+
       if (cell.querySelector('.iconic-stock-in')) return 'stock-in';
       if (cell.querySelector('.iconic-stock-out')) return 'stock-out';
       if (cell.querySelector('.iconic-stock-low')) return 'stock-low';
@@ -750,9 +776,17 @@ function scrollToAddToCart() {
           });
 
           highlightAllDifferences();
-          // Re-apply hide-empty-rows after highlight changes
+          // Re-apply hide-empty-rows after highlight changes, then re-run the
+          // same full recalculation chain the "Show All" button uses so the
+          // row count, button label and last-visible-row boundary marker
+          // all reflect the post-hide-empty-rows state, not the stale
+          // pre-applyHideEmptyRows() snapshot highlightAllDifferences() saw.
           applyHideEmptyRows();
-          setTimeout(updateShowAllButtonVisibility, 100);
+          updateShowAllButtonVisibility();
+          updateWrapperClasses();
+          section.querySelectorAll('.iconic-compare-products-table-wrapper.has-show-all-btn').forEach(function (wrapper) {
+            markLastVisibleRow(wrapper);
+          });
         });
       });
     }
