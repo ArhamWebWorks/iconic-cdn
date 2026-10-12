@@ -4,6 +4,15 @@
 //   "description": "Copying in any form is strictly prohibited. Any instance of copying will be subject to legal action and accountability under the law."
 // }
 
+function iconicShowAllLabel(btn, count) {
+  var tpl = (btn && btn.getAttribute("data-label-show-all")) || "Show All ([count] rows)";
+  return tpl.replace(/[count]/g, count);
+}
+
+function iconicShowLessLabel(btn) {
+  return (btn && btn.getAttribute("data-label-show-less")) || "Show Less";
+}
+
 function iconicDescriptionImageUrl(img) {
   return (
     img.currentSrc ||
@@ -705,7 +714,7 @@ function scrollToAddToCart() {
             }
             const isShowingAll = button.getAttribute('data-show-all') === 'false';
             if (!isShowingAll) {
-              button.textContent = 'Show All (' + visibleRowCount + ' rows)';
+              button.textContent = iconicShowAllLabel(button, visibleRowCount);
             }
           }
         } else {
@@ -716,7 +725,7 @@ function scrollToAddToCart() {
             }
             const isShowingAll = button.getAttribute('data-show-all') === 'false';
             if (!isShowingAll) {
-              button.textContent = 'Show All (' + totalRows + ' rows)';
+              button.textContent = iconicShowAllLabel(button, totalRows);
             }
           } else {
             button.classList.add('hidden');
@@ -913,7 +922,7 @@ function scrollToAddToCart() {
             rows.forEach(function (row) {
               row.classList.remove('iconic-row-hidden');
             });
-            this.textContent = 'Show Less';
+            this.textContent = iconicShowLessLabel(this);
             this.setAttribute('data-show-all', 'false');
           } else {
             rows.forEach(function (row, index) {
@@ -921,7 +930,7 @@ function scrollToAddToCart() {
                 row.classList.add('iconic-row-hidden');
               }
             });
-            this.textContent = 'Show All (' + totalRows + ' rows)';
+            this.textContent = iconicShowAllLabel(this, totalRows);
             this.setAttribute('data-show-all', 'true');
           }
 
@@ -1598,7 +1607,9 @@ function scrollToAddToCart() {
         showMoreBtn.classList.add("iconic-d-none");
       } else {
         showMoreBtn.classList.remove("iconic-d-none");
-        showMoreBtn.textContent = expanded ? "Show Less" : "Show All";
+        showMoreBtn.textContent = expanded
+          ? (showMoreBtn.getAttribute("data-label-show-less") || "Show Less")
+          : (showMoreBtn.getAttribute("data-label-show-all") || "Show All");
       }
     }
 
