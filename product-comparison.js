@@ -5,8 +5,8 @@
 // }
 
 function iconicShowAllLabel(btn, count) {
-  var tpl = (btn && btn.getAttribute("data-label-show-all")) || "Show All ([count] rows)";
-  return tpl.replace(/[count]/g, count);
+  var tpl = (btn && btn.getAttribute("data-label-show-all")) || "Show All (%count% rows)";
+  return tpl.replace(/%count%/g, count);
 }
 
 function iconicShowLessLabel(btn) {
@@ -542,7 +542,7 @@ function scrollToAddToCart() {
       if (clone.querySelector('.iconic-save-price, .iconic-price-sale, .iconic-price-compare')) return false;
       if (clone.querySelector('.iconic-attr-description')) return false;
       const text = (clone.textContent || '').replace(/\s+/g, '').trim();
-      return text === '' || text === '\u2014' || text === '\u2013' || text === '-';
+      return text === '' || text === '%count%2014' || text === '\u2013' || text === '-';
     }
 
     function getCellValue(cell) {
@@ -1516,7 +1516,7 @@ function scrollToAddToCart() {
       ).forEach(function (n) { n.remove(); });
       if (clone.firstElementChild) return false;
       var text = clone.textContent.replace(/\s+/g, "").trim();
-      return text === "" || text === "\u2014" || text === "\u2013" || text === "-";
+      return text === "" || text === "%count%2014" || text === "\u2013" || text === "-";
     }
 
     function isItemEmpty(item) {
